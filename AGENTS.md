@@ -66,6 +66,13 @@ while preserving all critical instructions. The agent must still communicate wit
 * 顺序很关键：stop → build projects → convert notebooks/docx → split courses → jekyll serve（以 [Makefile](Makefile) 为准）。
 * 项目构建后必须运行 [SASS 导入生成器](scripts/generate_sass_imports.py)，以创建 `_sass/projects/_all.scss`；`build-registered-projects` 负责此依赖，避免 Jekyll 的 `projects/all` 导入失败。
 
+### Makerspace 页面（Nel Norte Makerspace）
+
+* 专用布局：[_layouts/makerspace.html](_layouts/makerspace.html) + 共享顶栏 [_includes/makerspace-topbar.html](_includes/makerspace-topbar.html)；样式唯一来源是 [assets/css/makerspace.css](assets/css/makerspace.css)，逻辑在 [assets/js/makerspace.js](assets/js/makerspace.js)。
+* 页面：`index.html`（首页，permalink `/`）、`about.md`、`requests.md`、`signin.md`、`signup.md`、`signout.md`；这些页都用 `layout: makerspace`，不要再包 minima/`page` 布局（否则会带出主题 header/post-title）。
+* `index.md` 是未发布的旧首页草稿（`published: false`），避免与 `index.html` 的 `/` permalink 冲突；首页改动只改 `index.html`。
+* 品牌名统一为 **Nel Norte Makerspace**（与 `_config.yml` 一致）。
+
 ### 源文件与生成文件
 
 * 源文件在 [notebook sources](_notebooks/) 与 [docx sources](_docx/)；转换后的 Markdown 输出到 [generated posts](_posts/)（生成物，不要手工改）。

@@ -1,0 +1,26 @@
+<header class="makerspace-topbar">
+  <div class="makerspace-topbar-inner">
+    <a class="makerspace-brand" href="{{ '/' | relative_url }}">
+      <span class="makerspace-brand-mark" aria-hidden="true">3D</span>
+      <span class="brand-text">
+        <span class="brand-name">Nel Norte</span>
+        <span class="brand-sub">Makerspace</span>
+      </span>
+    </a>
+
+    <button class="makerspace-nav-toggle" type="button" aria-expanded="false" aria-controls="makerspaceNav" data-nav-toggle>
+      <span class="nav-toggle-bars" aria-hidden="true"></span>
+      <span class="visually-hidden">Menu</span>
+    </button>
+
+    <nav class="makerspace-nav" id="makerspaceNav" aria-label="Main navigation">
+      <a href="{{ '/' | relative_url }}"{% if page.url == '/' %} class="is-active" aria-current="page"{% endif %}>Home</a>
+      <a href="{{ '/about' | relative_url }}"{% if page.url == '/about' %} class="is-active" aria-current="page"{% endif %}>About</a>
+      <a href="{{ '/' | relative_url }}#request" id="requestLink" data-auth-area="signed-in" hidden>Request a Print</a>
+      <a href="{{ '/requests' | relative_url }}"{% if page.url == '/requests' %} class="is-active" aria-current="page"{% endif %} data-auth-area="signed-in" hidden>My Requests</a>
+      <a href="{{ '/' | relative_url }}#admin" id="adminLink" data-auth-area="signed-in" hidden>Admin</a>
+      <a href="{{ '/signin' | relative_url }}"{% if page.url == '/signin' %} class="is-active" aria-current="page"{% endif %} data-auth-area="signed-out">Sign In</a>
+      <a href="{{ '/signup' | relative_url }}"{% if page.url == '/signup' %} class="is-active" aria-current="page"{% endif %} data-auth-area="signed-out">Sign Up</a>
+    </nav>
+  </div>
+</header>

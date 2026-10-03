@@ -171,22 +171,40 @@
     const adminLink = document.getElementById('adminLink');
     if (adminLink) adminLink.hidden = !(isSignedIn && user && user.role === 'admin');
 
-    // Signed-in pill in the topbar
-    const topInner = document.querySelector('.makerspace-topbar-inner');
-    if (topInner) {
+    // Signed-in pill lives inside the nav so it stacks cleanly on mobile
+    const nav = document.querySelector('.makerspace-nav');
+    if (nav) {
       let pill = document.getElementById('signedInInfo');
       if (isSignedIn) {
         if (!pill) {
           pill = document.createElement('div');
           pill.id = 'signedInInfo';
           pill.className = 'signedin-pill';
-          topInner.appendChild(pill);
+          nav.appendChild(pill);
         }
-        pill.innerHTML = `${user.name} <button class="makerspace-link-button" data-signout style="margin-left:10px;">Sign out</button>`;
+        pill.innerHTML = `${user.name} <button class="makerspace-link-button" data-signout type="button">Sign out</button>`;
       } else if (pill) {
         pill.remove();
       }
     }
+  }
+
+  function attachNavToggle() {
+    const toggle = document.querySelector('[data-nav-toggle]');
+    const nav = document.getElementById('makerspaceNav');
+    if (!toggle || !nav) return;
+
+    toggle.addEventListener('click', function () {
+      const open = nav.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    nav.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', function () {
+        nav.classList.remove('is-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
   }
 
   function isValidStudentEmail(email) {
@@ -249,7 +267,7 @@
       state.session = { email: user.email, role: user.role, name: user.name };
       writeState(state);
       showAlert('#signupAlert', 'Account created. Redirecting to your request dashboard...', 'success');
-      setTimeout(() => { window.location.href = 'requests'; }, 700);
+      setTimeout(() => { window.location.href = '/requests'; }, 700);
     });
   }
 
@@ -292,7 +310,7 @@
       showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
       // Update UI immediately so user sees signed-in state before redirect
       updateSignedInState();
-      setTimeout(() => { window.location.href = 'requests'; }, 600);
+      setTimeout(() => { window.location.href = '/requests'; }, 600);
     });
   }
 
@@ -355,11 +373,12 @@
   }
 
   function attachSignout() {
-    document.querySelectorAll('[data-signout]').forEach((button) => {
-      button.addEventListener('click', function () {
-        clearSession();
-        window.location.href = 'signout';
-      });
+    document.addEventListener('click', function (event) {
+      const button = event.target.closest('[data-signout]');
+      if (!button) return;
+      event.preventDefault();
+      clearSession();
+      window.location.href = '/signout';
     });
   }
 
@@ -468,6 +487,7 @@
   }
 
   function init() {
+    attachNavToggle();
     updateSignedInState();
     initializeWelcome();
     attachSignup();

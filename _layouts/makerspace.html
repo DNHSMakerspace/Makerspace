@@ -1,0 +1,43 @@
+---
+layout: null
+---
+<!DOCTYPE html>
+<html lang="{{ page.lang | default: site.lang | default: 'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title | default: 'Makerspace' }} · {{ site.title | default: 'Nel Norte Makerspace' }}</title>
+  {% if site.description %}<meta name="description" content="{{ site.description }}">{% endif %}
+  <link rel="icon" href="{{ '/favicon.ico' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}">
+</head>
+<body class="makerspace-body">
+  {% include makerspace-topbar.html %}
+
+  <div class="makerspace-shell">
+    <main class="makerspace-main" id="main">
+      {{ content }}
+    </main>
+
+    <footer class="makerspace-footer">
+      <div class="makerspace-footer-inner">
+        <div class="footer-brand">
+          <span class="makerspace-brand-mark small" aria-hidden="true">3D</span>
+          <div>
+            <strong>Nel Norte Makerspace</strong>
+            <span>Design · Prototype · Print</span>
+          </div>
+        </div>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="{{ '/' | relative_url }}">Home</a>
+          <a href="{{ '/about' | relative_url }}">About</a>
+          <a href="{{ '/requests' | relative_url }}">Requests</a>
+          <a href="{{ '/signin' | relative_url }}">Sign In</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+
+  <script src="{{ '/assets/js/makerspace.js' | relative_url }}"></script>
+</body>
+</html>
