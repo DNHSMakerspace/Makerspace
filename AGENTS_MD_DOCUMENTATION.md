@@ -64,12 +64,12 @@ Split logic into clear layers:
 * Order matters: stop → build projects → convert notebooks/docx → split courses → jekyll serve (follow [Makefile](Makefile)).
 * Project builds must run the [SASS import generator](scripts/generate_sass_imports.py) to create `_sass/projects/_all.scss`; `build-registered-projects` owns this dependency so Jekyll can resolve `projects/all`.
 
-### Makerspace Pages (Nel Norte Makerspace)
+### Makerspace Pages (Del Norte Makerspace)
 
 * Dedicated layout: [_layouts/makerspace.html](_layouts/makerspace.html) + shared topbar [_includes/makerspace-topbar.html](_includes/makerspace-topbar.html); the only stylesheet is [assets/css/makerspace.css](assets/css/makerspace.css), with logic in [assets/js/makerspace.js](assets/js/makerspace.js).
 * Pages: `index.html` (homepage, permalink `/`), `about.md`, `requests.md`, `signin.md`, `signup.md`, `signout.md`; all use `layout: makerspace`. Do not wrap them in the minima/`page` layout again (that reintroduces the theme header/post-title chrome).
 * `index.md` is an unpublished legacy homepage draft (`published: false`) so it does not collide with `index.html`'s `/` permalink; homepage edits belong in `index.html`.
-* Brand name is consistently **Nel Norte Makerspace** (matches `_config.yml`).
+* Brand name is consistently **Del Norte Makerspace** (matches `_config.yml`).
 
 ### Sources vs Generated Files
 

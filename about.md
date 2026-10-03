@@ -8,7 +8,7 @@ permalink: /about
   <span class="eyebrow">The club</span>
   <h1>About the Makerspace</h1>
   <p class="lead">
-    Nel Norte Makerspace is a student-run workshop where ideas become prototypes, parts, and projects.
+    Del Norte Makerspace is a student-run workshop where ideas become prototypes, parts, and projects.
     We support classrooms, clubs, and personal builds with design help and responsible 3D printing.
   </p>
   <div class="page-header-actions">
@@ -50,7 +50,7 @@ permalink: /about
 
   <div class="about-hero-note">
     <strong>Who can join?</strong>
-    Any Nel Norte student with a school email can create an account and submit print requests.
+    Any Del Norte student with a school email can create an account and submit print requests.
     Club staff review every job for quality and safety before it runs.
   </div>
 </section>
