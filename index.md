@@ -5,7 +5,6 @@ permalink: /
 ---
 
 <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}">
-<script src="{{ '/assets/js/makerspace.js' | relative_url }}"></script>
 
 <div class="makerspace-shell">
   <header class="makerspace-topbar">
@@ -16,159 +15,56 @@ permalink: /
       </a>
 
       <nav class="makerspace-nav" aria-label="Main navigation">
-        <a href="#about">About</a>
-        <a href="#request">Request a Print</a>
-        <a href="#admin" id="adminLink" hidden>Admin</a>
-        <a href="{{ '/signin' | relative_url }}" data-auth-area="signed-out">Sign In</a>
-        <a href="{{ '/signup' | relative_url }}" data-auth-area="signed-out">Sign Up</a>
-        <button class="makerspace-link-button" data-auth-area="signed-in" data-signout type="button" hidden>Sign Out</button>
+        <a href="{{ '/about' | relative_url }}">About</a>
+        <a href="{{ '/requests' | relative_url }}">Requests</a>
+        <a href="{{ '/signup' | relative_url }}">Sign Up</a>
+        <a href="{{ '/signin' | relative_url }}">Sign In</a>
       </nav>
     </div>
   </header>
 
-  <main>
-    <section class="makerspace-hero">
-      <div class="makerspace-panel hero-copy">
-        <span class="eyebrow">Student-made ideas</span>
-        <h1>Turn classroom ideas into real objects.</h1>
-        <p>
-          The Nel Norte High School Makerspace helps students design, prototype, and 3D print projects for school clubs,
-          classrooms, and personal engineering challenges. We turn digital files into functional parts and creative builds.
-        </p>
+  <main class="makerspace-hero">
+    <div class="makerspace-panel hero-copy">
+      <span class="eyebrow">Student-made ideas</span>
+      <h1>Turn classroom ideas into real objects.</h1>
+      <p>
+        Nel Norte High School Makerspace helps students design, prototype, and 3D print projects for STEM classes,
+        clubs, and creative problem-solving challenges.
+      </p>
 
-        <div class="hero-actions">
-          <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Join the club</a>
-          <a class="makerspace-link-button" href="#request">Submit a print request</a>
+      <div class="hero-actions">
+        <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Join the club</a>
+        <a class="makerspace-link-button" href="{{ '/requests' | relative_url }}">Submit a request</a>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-pill">
+          <strong>240+</strong>
+          <span>Prints finished</span>
         </div>
-
-        <div class="hero-stats">
-          <div class="stat-pill">
-            <strong>240+</strong>
-            <span>Prints completed</span>
-          </div>
-          <div class="stat-pill">
-            <strong>18</strong>
-            <span>Active student makers</span>
-          </div>
-          <div class="stat-pill">
-            <strong>4.8/5</strong>
-            <span>Average review rating</span>
-          </div>
+        <div class="stat-pill">
+          <strong>18</strong>
+          <span>Student makers</span>
+        </div>
+        <div class="stat-pill">
+          <strong>4.8/5</strong>
+          <span>Print quality</span>
         </div>
       </div>
+    </div>
 
-      <div class="makerspace-panel hero-visual">
-        <div class="print-card">
-          <div class="print-card-header">
-            <strong>Printer Queue</strong>
-            <span class="status-dot" aria-label="Printer online"></span>
-          </div>
-          <div class="print-display">
-            <div class="model">
-              <span>Model</span>
-              <span>MiniBot v3</span>
-            </div>
-            <div class="cube">
-              <div class="cube-shape"></div>
-            </div>
-            <div class="model">
-              <span>Progress</span>
-              <span>82%</span>
-            </div>
-          </div>
+    <div class="makerspace-panel hero-visual">
+      <div class="print-card">
+        <div class="print-card-header">
+          <strong>Printer Queue</strong>
+          <span class="status-dot" aria-label="Printer online"></span>
+        </div>
+        <div class="print-display">
+          <div class="model"><span>Model</span><span>MiniBot v3</span></div>
+          <div class="cube"><div class="cube-shape"></div></div>
+          <div class="model"><span>Progress</span><span>82%</span></div>
         </div>
       </div>
-    </section>
-
-    <section id="about" class="makerspace-section">
-      <div class="section-header">
-        <h2>What we do</h2>
-        <p>Creative, practical, and student-first projects.</p>
-      </div>
-
-      <div class="content-grid">
-        <div class="makerspace-panel info-card">
-          <span class="eyebrow">Design support</span>
-          <h3>Prototype ideas</h3>
-          <p>Students can upload a 3D model or design concept for technical review before printing begins.</p>
-        </div>
-
-        <div class="makerspace-panel info-card">
-          <span class="eyebrow">Fast turnaround</span>
-          <h3>Club printing</h3>
-          <p>We manage requests for classroom tools, robotics accessories, demonstration models, and event props.</p>
-        </div>
-
-        <div class="makerspace-panel info-card">
-          <span class="eyebrow">Safety first</span>
-          <h3>Responsible use</h3>
-          <p>Every submission is checked for printability, safety, and appropriateness for school use.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="request" class="makerspace-section">
-      <div class="section-header">
-        <h2>Print request form</h2>
-        <p id="welcomeUser">Create an account to start printing</p>
-      </div>
-
-      <div class="makerspace-panel form-shell">
-        <form id="requestForm">
-          <div class="form-grid">
-            <label class="field">
-              Project name
-              <input type="text" name="projectName" placeholder="Example: Robotics Battery Holder" required>
-            </label>
-            <label class="field">
-              Material
-              <select name="material" required>
-                <option value="PLA">PLA</option>
-                <option value="PETG">PETG</option>
-                <option value="ABS">ABS</option>
-                <option value="TPU">TPU</option>
-              </select>
-            </label>
-            <label class="field">
-              Dimensions
-              <input type="text" name="dimensions" placeholder="Example: 120 x 80 x 40 mm" required>
-            </label>
-            <label class="field">
-              Needed by
-              <input type="date" name="deadline">
-            </label>
-            <div class="field field-full">
-              <label for="requestDescription">Description</label>
-              <textarea id="requestDescription" name="description" placeholder="Describe the purpose, size, and any special requirements for your print." required></textarea>
-            </div>
-            <label class="field field-full">
-              Upload model file
-              <input type="file" name="file" accept=".stl,.obj,.3mf,.step,.svg">
-            </label>
-          </div>
-          <div class="inline-note">Students must be signed in before submitting a print request.</div>
-          <div id="requestAlert" class="alert" aria-live="polite"></div>
-          <div style="margin-top: 22px;">
-            <button type="submit" class="makerspace-action-button">Submit print request</button>
-          </div>
-        </form>
-
-        <div style="margin-top: 28px;">
-          <h3 style="margin-bottom: 12px; color: var(--makerspace-navy);">Your print requests</h3>
-          <div id="requestList" class="request-list"></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="admin" class="makerspace-section" data-auth-area="signed-in" hidden>
-      <div class="section-header">
-        <h2>Admin review</h2>
-        <p>Approve, reject, and track student requests.</p>
-      </div>
-
-      <div class="makerspace-panel form-shell">
-        <div id="adminRequestList" class="admin-list"></div>
-      </div>
-    </section>
+    </div>
   </main>
 </div>

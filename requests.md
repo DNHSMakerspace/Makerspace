@@ -11,7 +11,7 @@ permalink: /requests
   <div class="makerspace-panel form-shell" style="max-width: 900px; margin: 0 auto;">
     <div class="section-header" style="margin-bottom: 20px;">
       <h2 style="margin: 0; color: var(--makerspace-navy);">Print Requests</h2>
-      <a class="makerspace-button" href="{{ '/' | relative_url }}">Back home</a>
+      <a class="makerspace-button" href="{{ '/' | relative_url }}">Home</a>
     </div>
     <div id="requestList" class="request-list"></div>
   </div>

@@ -18,11 +18,11 @@ permalink: /signup
         </label>
         <label class="field">
           School email
-          <input type="email" name="email" placeholder="jsmith@nelnorte.org" required>
+          <input type="email" name="email" placeholder="jsmith@stu.powayusd.com" required>
         </label>
         <label class="field">
           School ID
-          <input type="text" name="schoolId" placeholder="123456" required>
+          <input type="text" name="schoolId" placeholder="1954321" required pattern="^19\d{5}$" title="Enter a 7-digit ID starting with 19">
         </label>
         <label class="field">
           Password
