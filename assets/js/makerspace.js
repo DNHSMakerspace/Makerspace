@@ -175,6 +175,12 @@
             senderEmail: user.email,
             text: 'Request created. Waiting for admin review.',
             ts: Date.now()
+          },
+          {
+            sender: 'Makerspace',
+            senderEmail: ADMIN_EMAIL,
+            text: 'Thanks! Once we review this request, we’ll message you here to confirm the price before printing begins.',
+            ts: Date.now()
           }
         ]
       };
@@ -488,6 +494,8 @@
     });
   }
 
+  const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
+
   function isValidModelFile(fileName) {
     return /\.stl$/i.test(fileName) || /\.3mf$/i.test(fileName);
   }
@@ -508,6 +516,25 @@
       const data = new FormData(form);
       const file = data.get('file');
       const fileName = file && typeof file.name === 'string' ? file.name : '';
+      const projectName = (data.get('projectName') || '').toString().trim();
+      const material = (data.get('material') || '').toString().trim();
+      const description = (data.get('description') || '').toString().trim();
+      const deadline = (data.get('deadline') || '').toString().trim();
+
+      if (!projectName) {
+        showAlert('#requestAlert', 'Please enter a project name.', 'error');
+        return;
+      }
+
+      if (!ALLOWED_MATERIALS.includes(material)) {
+        showAlert('#requestAlert', 'Choose PLA, PETG, or SILK+ — those are the only materials we stock.', 'error');
+        return;
+      }
+
+      if (!description) {
+        showAlert('#requestAlert', 'Please describe the part. Include dimensions here only if they aren’t clear from the model file.', 'error');
+        return;
+      }
 
       if (!file || !fileName) {
         showAlert('#requestAlert', 'Please upload your 3D model file (STL or 3MF).', 'error');
@@ -522,11 +549,11 @@
         id: `request-${Date.now()}`,
         name: user.name,
         email: user.email,
-        projectName: (data.get('projectName') || '').toString().trim(),
-        material: (data.get('material') || '').toString().trim(),
-        dimensions: (data.get('dimensions') || '').toString().trim(),
-        description: (data.get('description') || '').toString().trim(),
-        deadline: (data.get('deadline') || '').toString().trim(),
+        projectName,
+        material,
+        dimensions: 'See uploaded file',
+        description,
+        deadline: deadline || 'Flexible',
         fileName,
         status: 'Pending',
         createdAt: Date.now()
@@ -545,6 +572,12 @@
             senderEmail: user.email,
             text: 'Request created. Waiting for admin review.',
             ts: Date.now()
+          },
+          {
+            sender: 'Makerspace',
+            senderEmail: ADMIN_EMAIL,
+            text: 'Thanks! Once we review this request, we’ll message you here to confirm the price before printing begins.',
+            ts: Date.now()
           }
         ]
       });
@@ -552,7 +585,7 @@
       form.reset();
       renderRequestLists();
       renderAdminRequests();
-      showAlert('#requestAlert', 'Your request has been submitted. Chat with admin is open below.', 'success');
+      showAlert('#requestAlert', 'Your request has been submitted. Check the print request chat — we’ll confirm the price before printing begins.', 'success');
 
       // Open the admin chat for the new request
       setTimeout(() => {

@@ -22,24 +22,29 @@ permalink: /requests/
       </label>
       <label class="field">
         Material
-        <input type="text" name="material" placeholder="PLA / PETG" required>
-      </label>
-      <label class="field">
-        Dimensions
-        <input type="text" name="dimensions" placeholder="e.g. 120x60x40 mm" required>
-      </label>
-      <label class="field field-full">
-        Description
-        <textarea name="description" placeholder="Describe the part, tolerances, and any notes" rows="3" required></textarea>
+        <select name="material" required>
+          <option value="PLA">PLA</option>
+          <option value="PETG">PETG</option>
+          <option value="SILK+">SILK+</option>
+        </select>
       </label>
       <label class="field">
         Needed by
-        <input type="date" name="deadline">
+        <input type="date" name="deadline" title="Optional">
+        <span class="field-hint">Optional — leave blank if there isn’t a hard deadline.</span>
+      </label>
+      <label class="field field-full">
+        Description
+        <textarea name="description" placeholder="Describe the part, tolerances, and any notes. Put dimensions here only if they aren’t already clear from the uploaded model file." rows="3" required></textarea>
+        <span class="field-hint">Dimensions should already be specified in your STL/3MF file — add size notes here only if needed.</span>
       </label>
       <label class="field">
         Upload STL or 3MF
         <input type="file" name="file" accept=".stl,.3mf" required>
       </label>
+    </div>
+    <div class="inline-note">
+      After you submit, we’ll message you in the print request chat to confirm the price before printing begins.
     </div>
     <div id="requestAlert" class="alert" aria-live="polite"></div>
     <div class="form-actions">

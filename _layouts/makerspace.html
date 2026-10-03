@@ -9,7 +9,7 @@ layout: null
   <title>{{ page.title | default: 'Makerspace' }} · {{ site.title | default: 'Del Norte Makerspace' }}</title>
   {% if site.description %}<meta name="description" content="{{ site.description }}">{% endif %}
   <link rel="icon" href="{{ '/favicon.ico' | relative_url }}">
-  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms3">
+  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms4">
   <script>
     // Injected so JS redirects always respect site.baseurl (never drops a path prefix).
     window.MAKERSPACE_BASE = {{ site.baseurl | jsonify }};
@@ -42,6 +42,6 @@ layout: null
     </footer>
   </div>
 
-  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms3"></script>
+  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms4"></script>
 </body>
 </html>

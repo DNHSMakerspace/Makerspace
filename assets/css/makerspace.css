@@ -644,6 +644,23 @@ textarea {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ms-muted);
+  line-height: 1.4;
+}
+
+.section-note {
+  margin: 8px 0 0;
+  max-width: 42rem;
+  color: var(--ms-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
 .field textarea {
   min-height: 110px;
   resize: vertical;
