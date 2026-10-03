@@ -222,7 +222,7 @@
       state.session = { email: user.email, role: user.role, name: user.name };
       writeState(state);
       showAlert('#signupAlert', 'Account created. Redirecting to your request dashboard...', 'success');
-      setTimeout(() => { window.location.href = '/requests'; }, 700);
+      setTimeout(() => { window.location.href = 'requests'; }, 700);
     });
   }
 
@@ -253,7 +253,7 @@
       state.session = { email: user.email, role: user.role, name: user.name };
       writeState(state);
       showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
-      setTimeout(() => { window.location.href = '/requests'; }, 600);
+      setTimeout(() => { window.location.href = 'requests'; }, 600);
     });
   }
 
@@ -301,7 +301,7 @@
     document.querySelectorAll('[data-signout]').forEach((button) => {
       button.addEventListener('click', function () {
         clearSession();
-        window.location.href = '/signout';
+        window.location.href = 'signout';
       });
     });
   }

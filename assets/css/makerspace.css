@@ -227,6 +227,93 @@ a { color: inherit; }
   font-weight: 600;
 }
 
+/* Form / panel styles for Sign Up / Sign In */
+.makerspace-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,245,242,0.96));
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 12px 30px var(--makerspace-shadow);
+  border: 1px solid rgba(26,36,51,0.04);
+}
+
+.form-shell h2 {
+  margin: 0 0 6px 0;
+  font-size: 1.6rem;
+}
+
+.form-shell p.lead {
+  margin: 0 0 18px 0;
+  color: rgba(26,36,51,0.7);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.form-grid .field-full { grid-column: 1 / -1; }
+
+.field {
+  display: block;
+  font-weight: 600;
+  color: var(--makerspace-ink);
+  font-size: 0.9rem;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(26,36,51,0.08);
+  background: white;
+  font-size: 0.95rem;
+  color: var(--makerspace-ink);
+  box-shadow: 0 6px 16px rgba(11,20,30,0.04) inset;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--makerspace-cyan);
+  box-shadow: 0 6px 20px rgba(88,196,220,0.12);
+}
+
+.makerspace-action-button,
+.makerspace-link-button {
+  padding: 12px 18px;
+  font-size: 0.95rem;
+}
+
+.makerspace-link-button {
+  background: transparent;
+  border: 1px solid rgba(26,36,51,0.06);
+  color: var(--makerspace-ink);
+}
+
+.alert {
+  min-height: 28px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+  display: none;
+  font-weight: 700;
+}
+.alert.show { display: block; }
+.alert.error { background: rgba(198,77,77,0.08); color: var(--makerspace-danger); border: 1px solid rgba(198,77,77,0.12); }
+.alert.success { background: rgba(46,139,87,0.08); color: var(--makerspace-success); border: 1px solid rgba(46,139,87,0.12); }
+
+@media (max-width: 820px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .makerspace-hero { grid-template-columns: 1fr; }
+  .makerspace-hero { min-height: calc(100vh - 160px); }
+}
+
+
 .makerspace-services {
   margin-top: 18px;
 }
