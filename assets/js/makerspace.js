@@ -15,6 +15,7 @@
         }
       ],
       requests: [],
+      chats: [],
       session: null
     };
   }
@@ -31,6 +32,7 @@
       const seed = defaultState();
       if (!Array.isArray(parsed.users)) parsed.users = seed.users;
       if (!Array.isArray(parsed.requests)) parsed.requests = [];
+      if (!Array.isArray(parsed.chats)) parsed.chats = [];
       if (!parsed.session || typeof parsed.session !== 'object') parsed.session = null;
       if (!parsed.users.some(item => item.email === ADMIN_EMAIL)) {
         parsed.users.unshift(seed.users[0]);
@@ -88,6 +90,10 @@
           <span>Upload: ${item.fileName || 'No file uploaded'}</span>
           <span>Needed by: ${item.deadline || 'Flexible'}</span>
         </div>
+        <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+          <button class="makerspace-link-button" data-chat-toggle data-request-id="${item.id}">Open Chat</button>
+        </div>
+        <div class="chat-area" id="chat-${item.id}" hidden></div>
       </div>
     `;
   }
@@ -137,6 +143,10 @@
           <button class="approve" data-action="approve" data-request-id="${item.id}">Approve</button>
           <button class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>
         </div>
+        <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+          <button class="makerspace-link-button" data-chat-toggle data-request-id="${item.id}">Open Chat</button>
+        </div>
+        <div class="chat-area" id="chat-${item.id}" hidden></div>
       </div>
     `).join('');
   }
@@ -272,7 +282,17 @@
 
       const data = new FormData(form);
       const file = data.get('file');
-      const fileName = file && typeof file.name === 'string' ? file.name : 'No file selected';
+      const fileName = file && typeof file.name === 'string' ? file.name : '';
+
+      // Validate file presence and extension (STL or 3MF)
+      if (!file || !fileName) {
+        showAlert('#requestAlert', 'Please upload your 3D model file (STL or 3MF).', 'error');
+        return;
+      }
+      if (!/\.stl$/i.test(fileName) && !/\.3mf$/i.test(fileName)) {
+        showAlert('#requestAlert', 'File must be an STL (.stl) or 3MF (.3mf).', 'error');
+        return;
+      }
 
       const request = {
         id: `request-${Date.now()}`,
@@ -289,6 +309,14 @@
 
       const state = readState();
       state.requests.unshift(request);
+      // create a chat thread associated with this request
+      state.chats = state.chats || [];
+      state.chats.unshift({
+        id: `chat-${Date.now()}`,
+        requestId: request.id,
+        participants: [user.email],
+        messages: [ { sender: user.name, senderEmail: user.email, text: 'Request created. Waiting for admin review.', ts: Date.now() } ]
+      });
       writeState(state);
       form.reset();
       renderRequests();
@@ -303,6 +331,83 @@
         clearSession();
         window.location.href = 'signout';
       });
+    });
+  }
+
+  // Chat helpers
+  function findChatByRequest(requestId) {
+    const state = readState();
+    return (state.chats || []).find(c => c.requestId === requestId) || null;
+  }
+
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>\"]/g, function (s) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s];
+    });
+  }
+
+  function renderChat(requestId) {
+    const container = document.getElementById(`chat-${requestId}`);
+    if (!container) return;
+    const chat = findChatByRequest(requestId);
+    if (!chat) {
+      container.innerHTML = '<div class="makerspace-empty">No chat available.</div>';
+      return;
+    }
+
+    const messagesHtml = (chat.messages || []).map(m => `
+      <div class="chat-message ${m.senderEmail === (currentUser()?.email) ? 'mine' : 'theirs'}">
+        <div class="chat-meta"><strong>${escapeHtml(m.sender)}</strong> <span class="chat-ts">${new Date(m.ts).toLocaleString()}</span></div>
+        <div class="chat-text">${escapeHtml(m.text)}</div>
+      </div>
+    `).join('');
+
+    container.innerHTML = `
+      <div class="chat-messages">${messagesHtml}</div>
+      <form class="chatForm" data-request-id="${requestId}">
+        <input type="text" name="message" placeholder="Write a message to the admins..." required />
+        <button type="submit" class="makerspace-action-button">Send</button>
+      </form>
+    `;
+  }
+
+  function attachChatHandlers() {
+    document.addEventListener('click', function (ev) {
+      const btn = ev.target.closest('[data-chat-toggle]');
+      if (!btn) return;
+      const requestId = btn.dataset.requestId;
+      if (!requestId) return;
+      const area = document.getElementById(`chat-${requestId}`);
+      if (!area) return;
+      const isHidden = area.hasAttribute('hidden');
+      if (isHidden) {
+        area.removeAttribute('hidden');
+        renderChat(requestId);
+      } else {
+        area.setAttribute('hidden', '');
+      }
+    });
+
+    document.addEventListener('submit', function (ev) {
+      const form = ev.target.closest('.chatForm');
+      if (!form) return;
+      ev.preventDefault();
+      const requestId = form.dataset.requestId;
+      const input = form.querySelector('input[name="message"]');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+      const state = readState();
+      const chat = state.chats.find(c => c.requestId === requestId);
+      const user = currentUser();
+      if (!chat || !user) {
+        showAlert('#requestAlert', 'Unable to send message. Make sure you are signed in.', 'error');
+        return;
+      }
+      chat.messages.push({ sender: user.name, senderEmail: user.email, text, ts: Date.now() });
+      if (!chat.participants.includes(ADMIN_EMAIL)) chat.participants.push(ADMIN_EMAIL);
+      writeState(state);
+      renderChat(requestId);
     });
   }
 
@@ -341,6 +446,7 @@
     attachRequestForm();
     attachSignout();
     attachAdminActions();
+    attachChatHandlers();
     renderRequests();
     renderAdminRequests();
   }

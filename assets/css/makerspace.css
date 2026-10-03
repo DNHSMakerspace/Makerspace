@@ -20,9 +20,10 @@ html {
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  /* Updated background: warm neutral linen with subtle accent */
   background:
-    radial-gradient(circle at top, rgba(88, 196, 220, 0.22), transparent 30%),
-    linear-gradient(180deg, #ecf3f7 0%, #eef3ef 100%);
+    radial-gradient(circle at 10% 5%, rgba(244,201,93,0.06), transparent 25%),
+    linear-gradient(180deg, #fbf8f3 0%, #f6f4ee 100%);
   color: var(--makerspace-ink);
   min-height: 100vh;
 }
@@ -312,6 +313,32 @@ a { color: inherit; }
   .makerspace-hero { grid-template-columns: 1fr; }
   .makerspace-hero { min-height: calc(100vh - 160px); }
 }
+
+/* Chat UI */
+.chat-area {
+  margin-top: 12px;
+  border-top: 1px solid rgba(26,36,51,0.06);
+  padding-top: 12px;
+}
+.chat-messages {
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding: 6px 2px;
+}
+.chat-message {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(26,36,51,0.04);
+}
+.chat-message.mine { background: linear-gradient(90deg, rgba(88,196,220,0.12), rgba(43,108,176,0.06)); }
+.chat-message .chat-meta { font-size: 0.75rem; color: rgba(26,36,51,0.6); margin-bottom:6px; }
+.chat-message .chat-text { white-space: pre-wrap; }
+.chatForm { display:flex; gap:8px; margin-top:8px; }
+.chatForm input[type="text"] { flex:1; padding:10px 12px; border-radius:8px; border:1px solid rgba(26,36,51,0.08); }
+
 
 
 .makerspace-services {
