@@ -409,6 +409,26 @@ textarea {
   margin-top: 26px;
 }
 
+.hero-banner {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--ms-radius-pill);
+  border: 1px solid rgba(226, 168, 59, 0.45);
+  background: linear-gradient(135deg, var(--ms-gold-soft), #fff);
+  color: var(--ms-navy);
+  font-size: 0.95rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.hero-banner strong {
+  color: var(--ms-cyan-deep);
+  font-weight: 800;
+}
+
 /* ---------- Sections ---------- */
 
 .makerspace-section,
@@ -770,6 +790,98 @@ textarea {
   word-break: break-word;
 }
 
+.member-card.is-open {
+  border-color: rgba(31, 168, 196, 0.4);
+  box-shadow: var(--ms-shadow-md);
+}
+
+.member-card-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.member-panel {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--ms-line);
+  display: grid;
+  gap: 12px;
+}
+
+.member-panel h5 {
+  margin: 0;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ms-muted);
+}
+
+.member-history {
+  display: grid;
+  gap: 10px;
+}
+
+.member-history-item {
+  padding: 12px 14px;
+  border-radius: var(--ms-radius);
+  border: 1px solid var(--ms-line-soft);
+  background: #fbfcfd;
+}
+
+.member-history-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.member-history-main strong {
+  color: var(--ms-navy);
+}
+
+.member-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  color: var(--ms-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.member-history-item p {
+  margin: 0;
+  color: var(--ms-body);
+  font-size: 0.92rem;
+}
+
+.member-panel-alert {
+  margin-top: 0;
+}
+
+.member-danger {
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: var(--ms-radius);
+  border: 1px solid rgba(214, 69, 80, 0.2);
+  background: #fff7f7;
+}
+
+.member-danger p {
+  margin: 0 0 10px;
+  color: var(--ms-danger);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.member-list {
+  grid-template-columns: 1fr;
+}
+
 .field textarea {
   min-height: 110px;
   resize: vertical;
@@ -973,6 +1085,16 @@ textarea {
   color: var(--ms-danger);
 }
 
+.makerspace-badge.completed {
+  background: var(--ms-success-soft);
+  color: var(--ms-success);
+}
+
+.makerspace-badge.closed {
+  background: #e8eef3;
+  color: var(--ms-navy-2);
+}
+
 .admin-actions {
   display: flex;
   flex-wrap: wrap;
@@ -982,7 +1104,8 @@ textarea {
 
 .admin-actions .approve,
 .admin-actions .reject,
-.admin-actions .complete {
+.admin-actions .complete,
+.admin-actions .close {
   border: none;
   border-radius: 10px;
   padding: 8px 14px;
@@ -1010,9 +1133,16 @@ textarea {
   box-shadow: 0 8px 16px rgba(37, 99, 166, 0.2);
 }
 
+.admin-actions .close {
+  background: #fff;
+  color: var(--ms-navy-2);
+  border: 1px solid var(--ms-line);
+}
+
 .admin-actions .approve:hover,
 .admin-actions .reject:hover,
-.admin-actions .complete:hover {
+.admin-actions .complete:hover,
+.admin-actions .close:hover {
   transform: translateY(-1px);
 }
 

@@ -2,7 +2,7 @@
   const STORAGE_KEY = 'makerspace-demo-state';
   const ADMIN_EMAIL = 'krishk27411@stu.powayusd.com';
   const ACTIVE_STATUSES = ['pending', 'approved'];
-  const HISTORY_STATUSES = ['rejected', 'completed'];
+  const HISTORY_STATUSES = ['rejected', 'completed', 'closed'];
 
   // Resolve site baseurl so redirects never drop a path prefix (e.g. /Makerspace).
   function msBaseUrl() {
@@ -247,21 +247,22 @@
     if (!container) return;
 
     const state = readState();
-    // Admin review queue: pending + approved (history lives in print history)
-    const pendingish = state.requests.filter(item => {
-      const status = normalizeStatus(item.status);
-      return status === 'pending' || status === 'approved';
-    });
+    // Admin review queue: open jobs only (history lives in print history)
+    const openJobs = state.requests.filter(item => isActiveStatus(item.status));
 
-    if (!pendingish.length) {
+    if (!openJobs.length) {
       container.innerHTML = '<div class="makerspace-empty">There are no open print jobs right now.</div>';
       return;
     }
 
-    container.innerHTML = pendingish.map((item) => {
+    container.innerHTML = openJobs.map((item) => {
       const status = item.status || 'Pending';
       const statusClass = status.toLowerCase();
-      const canComplete = normalizeStatus(status) === 'approved';
+      const normalized = normalizeStatus(status);
+      const canAccept = normalized === 'pending';
+      const canComplete = normalized === 'approved';
+      const canClose = normalized === 'pending' || normalized === 'approved';
+      const canReject = normalized === 'pending' || normalized === 'approved';
       return `
         <article class="admin-item" data-request-card data-request-id="${item.id}">
           <div class="admin-item-header">
@@ -276,9 +277,10 @@
           </div>
           <p>${escapeHtml(item.description || 'No description provided.')}</p>
           <div class="admin-actions">
-            <button type="button" class="approve" data-action="approve" data-request-id="${item.id}">Approve</button>
-            <button type="button" class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>
+            ${canAccept ? `<button type="button" class="approve" data-action="accept" data-request-id="${item.id}">Accept request</button>` : ''}
             ${canComplete ? `<button type="button" class="complete" data-action="complete" data-request-id="${item.id}">Mark completed</button>` : ''}
+            ${canClose ? `<button type="button" class="close" data-action="close" data-request-id="${item.id}">Close request</button>` : ''}
+            ${canReject ? `<button type="button" class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>` : ''}
           </div>
           <div class="request-actions">
             <button type="button" class="makerspace-link-button request-chat-btn" data-chat-toggle data-request-id="${item.id}">Chat with student</button>
@@ -679,12 +681,51 @@
     return fields.some((value) => (value || '').toString().toLowerCase().includes(q));
   }
 
+  let openMemberEmail = '';
+
+  function isAdminActor() {
+    const user = currentUser();
+    return !!(user && user.role === 'admin');
+  }
+
+  function memberRequestHistory(state, email) {
+    return (state.requests || []).filter((item) => item.email === email);
+  }
+
+  function renderMemberRequestHistory(state, email) {
+    const items = memberRequestHistory(state, email);
+    if (!items.length) {
+      return '<div class="makerspace-empty">No print requests on file for this member.</div>';
+    }
+    return `
+      <div class="member-history">
+        ${items.map((item) => {
+          const status = item.status || 'Pending';
+          return `
+            <div class="member-history-item">
+              <div class="member-history-main">
+                <strong>${escapeHtml(item.projectName || 'Unnamed request')}</strong>
+                <span class="makerspace-badge ${status.toLowerCase()}">${escapeHtml(status)}</span>
+              </div>
+              <div class="member-history-meta">
+                <span>${escapeHtml(item.material || '')}</span>
+                <span>${escapeHtml(item.color || item.dimensions || '')}</span>
+                <span>${escapeHtml(item.fileName || '')}</span>
+                <span>${escapeHtml(item.deadline || 'Flexible')}</span>
+              </div>
+              <p>${escapeHtml(item.description || 'No description provided.')}</p>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
   function renderMemberList(query) {
     const container = document.getElementById('memberList');
     if (!container) return;
 
-    const user = currentUser();
-    if (!user || user.role !== 'admin') {
+    if (!isAdminActor()) {
       container.innerHTML = '';
       return;
     }
@@ -697,28 +738,86 @@
       return;
     }
 
-    container.innerHTML = users.map((item) => `
-      <article class="member-card">
-        <div class="member-card-header">
-          <h4>${escapeHtml(item.name || 'Unnamed')}</h4>
-          <span class="makerspace-badge ${item.role === 'admin' ? 'approved' : ''}">${escapeHtml(item.role || 'member')}</span>
-        </div>
-        <dl class="member-details">
-          <div>
-            <dt>School ID</dt>
-            <dd>${escapeHtml(item.schoolId || '—')}</dd>
+    container.innerHTML = users.map((item) => {
+      const email = item.email || '';
+      const isOpen = openMemberEmail && openMemberEmail.toLowerCase() === email.toLowerCase();
+      const requestCount = memberRequestHistory(state, email).length;
+      return `
+        <article class="member-card${isOpen ? ' is-open' : ''}" data-member-email="${escapeHtml(email)}">
+          <div class="member-card-header">
+            <h4>${escapeHtml(item.name || 'Unnamed')}</h4>
+            <span class="makerspace-badge ${item.role === 'admin' ? 'approved' : ''}">${escapeHtml(item.role || 'member')}</span>
           </div>
-          <div>
-            <dt>Email</dt>
-            <dd>${escapeHtml(item.email || '—')}</dd>
+          <dl class="member-details">
+            <div>
+              <dt>School ID</dt>
+              <dd>${escapeHtml(item.schoolId || '—')}</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd>${escapeHtml(email || '—')}</dd>
+            </div>
+            <div>
+              <dt>Password</dt>
+              <dd>${escapeHtml(item.password || '—')}</dd>
+            </div>
+            <div>
+              <dt>Requests</dt>
+              <dd>${requestCount}</dd>
+            </div>
+          </dl>
+          <div class="member-card-actions">
+            <button type="button" class="makerspace-link-button" data-member-toggle="${escapeHtml(email)}">
+              ${isOpen ? 'Hide details' : 'View history & edit'}
+            </button>
           </div>
-          <div>
-            <dt>Password</dt>
-            <dd>${escapeHtml(item.password || '—')}</dd>
+          <div class="member-panel" ${isOpen ? '' : 'hidden'}>
+            <h5>Print history</h5>
+            ${renderMemberRequestHistory(state, email)}
+
+            <h5>Edit account</h5>
+            <form class="member-edit-form" data-member-edit="${escapeHtml(email)}">
+              <div class="form-grid">
+                <label class="field">
+                  Email
+                  <input type="email" name="email" value="${escapeHtml(email)}" required pattern="^[^@\\s]+@stu\\.powayusd\\.com$" title="Use a Poway school email ending in @stu.powayusd.com">
+                </label>
+                <label class="field">
+                  School ID
+                  <input type="text" name="schoolId" value="${escapeHtml(item.schoolId || '')}" required pattern="^19\\d{5}$" title="Enter a 7-digit ID starting with 19">
+                </label>
+                <label class="field">
+                  Password
+                  <input type="text" name="password" value="${escapeHtml(item.password || '')}" required minlength="4">
+                </label>
+                <label class="field">
+                  Role
+                  <select name="role" required>
+                    <option value="member" ${(item.role || 'member') === 'member' ? 'selected' : ''}>Member</option>
+                    <option value="admin" ${item.role === 'admin' ? 'selected' : ''}>Admin</option>
+                  </select>
+                  <span class="field-hint">Admins can review requests, manage inventory, and edit members.</span>
+                </label>
+              </div>
+              <div class="member-panel-alert alert" aria-live="polite"></div>
+              <div class="form-actions">
+                <button type="submit" class="makerspace-action-button">Save changes</button>
+              </div>
+            </form>
+
+            <div class="member-danger">
+              <p>Deleting removes this account from the site. Their old requests stay in admin history unless you remove them separately.</p>
+              <button type="button" class="inventory-delete" data-member-delete="${escapeHtml(email)}">Delete account</button>
+            </div>
           </div>
-        </dl>
-      </article>
-    `).join('');
+        </article>
+      `;
+    }).join('');
+  }
+
+  function refreshMemberListFromSearch() {
+    const input = document.getElementById('memberSearch');
+    renderMemberList(input ? input.value.trim() : '');
   }
 
   function attachMemberSearch() {
@@ -727,6 +826,164 @@
 
     input.addEventListener('input', function () {
       renderMemberList(input.value.trim());
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!isAdminActor()) return;
+
+      const toggle = event.target.closest('[data-member-toggle]');
+      if (toggle) {
+        const email = toggle.dataset.memberToggle || '';
+        openMemberEmail = openMemberEmail.toLowerCase() === email.toLowerCase() ? '' : email;
+        refreshMemberListFromSearch();
+        return;
+      }
+
+      const deleteBtn = event.target.closest('[data-member-delete]');
+      if (deleteBtn) {
+        const email = (deleteBtn.dataset.memberDelete || '').toLowerCase();
+        if (!email) return;
+
+        const state = readState();
+        const target = state.users.find((item) => (item.email || '').toLowerCase() === email);
+        if (!target) return;
+
+        // Never delete the primary seeded admin
+        if (email === ADMIN_EMAIL.toLowerCase()) {
+          const panel = deleteBtn.closest('.member-panel');
+          const alertEl = panel ? panel.querySelector('.member-panel-alert') : null;
+          if (alertEl) {
+            alertEl.textContent = 'The primary admin account cannot be deleted.';
+            alertEl.className = 'member-panel-alert alert show error';
+          }
+          return;
+        }
+
+        if (!window.confirm(`Delete account ${target.email}? This cannot be undone.`)) return;
+
+        state.users = state.users.filter((item) => (item.email || '').toLowerCase() !== email);
+        // Clear session if this was the signed-in user
+        if (state.session && (state.session.email || '').toLowerCase() === email) {
+          state.session = null;
+        }
+        if (openMemberEmail.toLowerCase() === email) openMemberEmail = '';
+        writeState(state);
+        updateSignedInState();
+        refreshMemberListFromSearch();
+        renderRequestLists();
+        renderAdminRequests();
+        return;
+      }
+
+      const editForm = event.target.closest('[data-member-edit]');
+      // handled on submit below
+      void editForm;
+    });
+
+    document.addEventListener('submit', function (event) {
+      const form = event.target.closest('[data-member-edit]');
+      if (!form) return;
+      event.preventDefault();
+
+      if (!isAdminActor()) return;
+
+      const originalEmail = (form.dataset.memberEdit || '').toLowerCase();
+      const data = new FormData(form);
+      const email = (data.get('email') || '').toString().trim();
+      const schoolId = (data.get('schoolId') || '').toString().trim();
+      const password = (data.get('password') || '').toString();
+      const role = (data.get('role') || '').toString().trim() === 'admin' ? 'admin' : 'member';
+
+      const alertEl = form.querySelector('.member-panel-alert');
+      const fail = (message) => {
+        if (!alertEl) return;
+        alertEl.textContent = message;
+        alertEl.className = 'member-panel-alert alert show error';
+      };
+      const ok = (message) => {
+        if (!alertEl) return;
+        alertEl.textContent = message;
+        alertEl.className = 'member-panel-alert alert show success';
+      };
+
+      if (!email || !schoolId || password.length < 4) {
+        fail('Email, school ID, and password (min 4 chars) are all required.');
+        return;
+      }
+      if (!isValidStudentEmail(email) && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        fail('Use a valid Poway school email ending in @stu.powayusd.com.');
+        return;
+      }
+      if (!isValidSchoolId(schoolId)) {
+        fail('School ID must be 7 digits and start with 19.');
+        return;
+      }
+
+      const state = readState();
+      const target = state.users.find((item) => (item.email || '').toLowerCase() === originalEmail);
+      if (!target) {
+        fail('Account not found. It may have been deleted.');
+        return;
+      }
+
+      const emailTaken = state.users.some((item) => {
+        const other = (item.email || '').toLowerCase();
+        return other === email.toLowerCase() && other !== originalEmail;
+      });
+      if (emailTaken) {
+        fail('Another account already uses that email.');
+        return;
+      }
+
+      const idTaken = state.users.some((item) => {
+        const otherId = (item.schoolId || '').toLowerCase();
+        return otherId === schoolId.toLowerCase() && (item.email || '').toLowerCase() !== originalEmail;
+      });
+      if (idTaken) {
+        fail('That school ID is already in use.');
+        return;
+      }
+
+      const oldEmail = target.email;
+      const previousRole = target.role || 'member';
+      target.email = email;
+      target.schoolId = schoolId;
+      target.password = password;
+      target.role = role;
+
+      // Keep session, requests, and chats consistent after email changes
+      if (state.session && (state.session.email || '').toLowerCase() === originalEmail) {
+        state.session.email = email;
+        state.session.role = role;
+      }
+      state.requests = (state.requests || []).map((item) => {
+        if ((item.email || '').toLowerCase() === originalEmail) {
+          return { ...item, email };
+        }
+        return item;
+      });
+      state.chats = (state.chats || []).map((chat) => {
+        const participants = (chat.participants || []).map((p) => {
+          if ((p || '').toLowerCase() === originalEmail) return email;
+          return p;
+        });
+        return {
+          ...chat,
+          participants: Array.from(new Set([...participants, email, ADMIN_EMAIL]))
+        };
+      });
+
+      writeState(state);
+      openMemberEmail = email;
+      updateSignedInState();
+      refreshMemberListFromSearch();
+      renderAdminRequests();
+      const roleNote = previousRole === role
+        ? ''
+        : role === 'admin'
+          ? ' Role updated to admin.'
+          : ' Role updated to member.';
+      ok(`Saved changes for ${email}.${roleNote}`);
     });
   }
 
@@ -1083,6 +1340,13 @@
   }
 
   function attachAdminActions() {
+    const STATUS_CHAT_NOTES = {
+      accepted: 'Request accepted. We’re moving ahead with the print.',
+      completed: 'Print marked completed. It’s now in your print history.',
+      closed: 'Request closed. It’s now in your print history.',
+      rejected: 'Request rejected. We won’t print this job.'
+    };
+
     document.addEventListener('click', function (event) {
       const target = event.target.closest('[data-action]');
       if (!target) return;
@@ -1098,13 +1362,60 @@
       const request = state.requests.find(item => item.id === requestId);
       if (!request) return;
 
-      if (action === 'approve') request.status = 'Approved';
-      if (action === 'reject') request.status = 'Rejected';
-      if (action === 'complete') request.status = 'Completed';
+      const normalized = normalizeStatus(request.status);
+      let noteKey = null;
+
+      // Accept pending jobs
+      if (action === 'accept' || action === 'approve') {
+        if (normalized !== 'pending') return;
+        request.status = 'Approved';
+        noteKey = 'accepted';
+      } else if (action === 'complete') {
+        // Finish an accepted job → history
+        if (normalized !== 'approved') return;
+        request.status = 'Completed';
+        noteKey = 'completed';
+      } else if (action === 'close') {
+        // Close open jobs without requiring completion → history
+        if (normalized !== 'pending' && normalized !== 'approved') return;
+        request.status = 'Closed';
+        noteKey = 'closed';
+      } else if (action === 'reject') {
+        if (normalized !== 'pending' && normalized !== 'approved') return;
+        request.status = 'Rejected';
+        noteKey = 'rejected';
+      } else {
+        return;
+      }
+
+      // Log status change in the request chat
+      state.chats = state.chats || [];
+      let chat = state.chats.find(c => c.requestId === requestId);
+      if (!chat) {
+        chat = {
+          id: `chat-${request.id}`,
+          requestId: request.id,
+          participants: withAdminParticipants(state, [request.email, user.email]),
+          messages: []
+        };
+        state.chats.unshift(chat);
+      }
+      chat.messages.push({
+        sender: user.name,
+        senderEmail: user.email,
+        text: `${request.projectName || 'Request'} status → ${request.status}. ${STATUS_CHAT_NOTES[noteKey] || ''}`.trim(),
+        ts: Date.now()
+      });
+      chat.participants = withAdminParticipants(state, [
+        ...(chat.participants || []),
+        request.email,
+        user.email
+      ]);
 
       writeState(state);
       renderAdminRequests();
       renderRequestLists();
+      renderChat(requestId);
     });
   }
 

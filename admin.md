@@ -20,7 +20,7 @@ permalink: /admin/
     <div>
       <span class="eyebrow">Staff tools</span>
       <h2>Admin review</h2>
-      <p>Approve, reject, complete, and chat about student requests.</p>
+      <p>Accept requests, mark completed when the print is done, or close them. Completed and closed jobs move to print history.</p>
     </div>
   </div>
 
@@ -66,7 +66,7 @@ permalink: /admin/
       <div>
         <span class="eyebrow">Directory</span>
         <h3>Members</h3>
-        <p>Search every account. Shows name, school ID, email, and password for staff review.</p>
+        <p>Search every account. Open a member to view their print history, edit email / school ID / password / role, promote them to admin, or delete the account.</p>
       </div>
     </div>
 
