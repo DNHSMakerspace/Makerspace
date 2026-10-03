@@ -9,11 +9,6 @@ permalink: /
 <div class="makerspace-shell">
   <header class="makerspace-topbar">
     <div class="makerspace-topbar-inner">
-      <a class="makerspace-brand" href="{{ '/' | relative_url }}">
-        <span class="makerspace-brand-mark">3D</span>
-        <span>Del Norte Makerspace</span>
-      </a>
-
       <nav class="makerspace-nav" aria-label="Main navigation">
         <a href="{{ '/about' | relative_url }}">About</a>
         <a href="{{ '/requests' | relative_url }}">Requests</a>
@@ -39,23 +34,7 @@ permalink: /
         </div>
       </div>
 
-      <div class="makerspace-panel hero-aside">
-        <div class="mini-label">Club quick info</div>
-        <div class="info-stack">
-          <div>
-            <span>Open</span>
-            <strong>Tue / Thu after school</strong>
-          </div>
-          <div>
-            <span>Focus</span>
-            <strong>3D design, prototyping, and problem-solving</strong>
-          </div>
-          <div>
-            <span>Support</span>
-            <strong>Student-led project reviews and printing help</strong>
-          </div>
-        </div>
-      </div>
+      <!-- hero-aside removed per site cleanup -->
     </section>
 
     <section class="makerspace-services">

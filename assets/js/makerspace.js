@@ -170,6 +170,23 @@
 
     const adminLink = document.getElementById('adminLink');
     if (adminLink) adminLink.hidden = !(isSignedIn && user && user.role === 'admin');
+
+    // Signed-in pill in the topbar
+    const topInner = document.querySelector('.makerspace-topbar-inner');
+    if (topInner) {
+      let pill = document.getElementById('signedInInfo');
+      if (isSignedIn) {
+        if (!pill) {
+          pill = document.createElement('div');
+          pill.id = 'signedInInfo';
+          pill.className = 'signedin-pill';
+          topInner.appendChild(pill);
+        }
+        pill.innerHTML = `${user.name} <button class="makerspace-link-button" data-signout style="margin-left:10px;">Sign out</button>`;
+      } else if (pill) {
+        pill.remove();
+      }
+    }
   }
 
   function isValidStudentEmail(email) {
@@ -245,10 +262,20 @@
 
       const data = new FormData(form);
       const email = (data.get('email') || '').toString().trim();
-      const password = (data.get('password') || '').toString();
+      const password = (data.get('password') || '').toString().trim();
 
-      if (!email || !password) {
-        showAlert('#signinAlert', 'Enter both your email and password.', 'error');
+      if (!email) {
+        showAlert('#signinAlert', 'Enter your school email.', 'error');
+        return;
+      }
+      if (!password) {
+        showAlert('#signinAlert', 'Enter your password.', 'error');
+        return;
+      }
+
+      // Require valid Poway student email (or admin) for signin
+      if (!isValidStudentEmail(email) && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        showAlert('#signinAlert', 'Use your Poway school email (ending in @stu.powayusd.com).', 'error');
         return;
       }
 
@@ -263,6 +290,8 @@
       state.session = { email: user.email, role: user.role, name: user.name };
       writeState(state);
       showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
+      // Update UI immediately so user sees signed-in state before redirect
+      updateSignedInState();
       setTimeout(() => { window.location.href = 'requests'; }, 600);
     });
   }

@@ -10,6 +10,7 @@ permalink: /signin
 <div class="makerspace-shell" style="padding-top: 48px;">
   <div class="makerspace-panel form-shell" style="max-width: 560px; margin: 0 auto;">
     <h2 style="margin-top: 0; color: var(--makerspace-navy);">Sign in to the Makerspace</h2>
+    <p class="lead">Sign in with your Poway school email to see and submit print requests.</p>
     <form id="signinForm">
       <div class="form-grid">
         <label class="field field-full">

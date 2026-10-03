@@ -10,6 +10,7 @@ permalink: /signup
 <div class="makerspace-shell" style="padding-top: 48px;">
   <div class="makerspace-panel form-shell" style="max-width: 720px; margin: 0 auto;">
     <h2 style="margin-top: 0; color: var(--makerspace-navy);">Create a Makerspace account</h2>
+    <p class="lead">Use your school email to sign up. Accounts are reviewed by club staff.</p>
     <form id="signupForm">
       <div class="form-grid">
         <label class="field">
