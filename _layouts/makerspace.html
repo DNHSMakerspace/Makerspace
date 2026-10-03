@@ -8,8 +8,10 @@ layout: null
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ page.title | default: 'Makerspace' }} · {{ site.title | default: 'Del Norte Makerspace' }}</title>
   {% if site.description %}<meta name="description" content="{{ site.description }}">{% endif %}
-  <link rel="icon" type="image/svg+xml" href="{{ '/assets/images/makerspace-favicon.svg' | relative_url }}?v=ms6">
-  <link rel="alternate icon" href="{{ '/favicon.ico' | relative_url }}">
+  <link rel="icon" type="image/svg+xml" href="{{ '/favicon.svg' | relative_url }}?v=ms3d1">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ '/favicon-32x32.png' | relative_url }}?v=ms3d1">
+  <link rel="alternate icon" href="{{ '/favicon.ico' | relative_url }}?v=ms3d1">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ '/apple-touch-icon.png' | relative_url }}?v=ms3d1">
   <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms11">
   <script>
     // Injected so JS redirects always respect site.baseurl (never drops a path prefix).
