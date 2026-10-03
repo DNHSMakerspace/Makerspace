@@ -112,7 +112,7 @@ permalink: /
   </div>
 </section>
 
-<section id="admin" class="makerspace-section" data-auth-area="signed-in" hidden>
+<section id="admin" class="makerspace-section" data-role="admin" hidden>
   <div class="section-header">
     <div>
       <span class="eyebrow">Staff tools</span>
@@ -123,6 +123,41 @@ permalink: /
 
   <div class="makerspace-panel form-shell">
     <div id="adminRequestList" class="admin-list"></div>
+  </div>
+
+  <div class="makerspace-panel form-shell stacked-panel">
+    <div class="section-header">
+      <div>
+        <span class="eyebrow">Admin access</span>
+        <h3>Create admin account</h3>
+        <p>Only current admins can add other admin accounts.</p>
+      </div>
+    </div>
+
+    <form id="adminCreateForm">
+      <div class="form-grid">
+        <label class="field">
+          Full name
+          <input type="text" name="name" placeholder="Jane Admin" required>
+        </label>
+        <label class="field">
+          School email
+          <input type="email" name="email" placeholder="jadmin@stu.powayusd.com" required pattern="^[^@\s]+@stu\.powayusd\.com$" title="Use a Poway school email ending in @stu.powayusd.com">
+        </label>
+        <label class="field">
+          School ID
+          <input type="text" name="schoolId" placeholder="1954321" required pattern="^19\d{5}$" title="Enter a 7-digit ID starting with 19">
+        </label>
+        <label class="field">
+          Password
+          <input type="password" name="password" placeholder="Create a secure password" required minlength="4">
+        </label>
+      </div>
+      <div id="adminCreateAlert" class="alert" aria-live="polite"></div>
+      <div class="form-actions">
+        <button type="submit" class="makerspace-action-button">Create admin account</button>
+      </div>
+    </form>
   </div>
 </section>
 

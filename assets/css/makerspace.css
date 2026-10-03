@@ -551,9 +551,17 @@ textarea {
 /* ---------- Forms ---------- */
 
 .form-shell,
-.form-page {
-  padding: 26px;
-}
+  .form-page {
+    padding: 26px;
+  }
+
+  .stacked-panel {
+    margin-top: 16px;
+  }
+
+  .stacked-panel .section-header {
+    margin-bottom: 12px;
+  }
 
 .form-page {
   width: min(100%, 760px);

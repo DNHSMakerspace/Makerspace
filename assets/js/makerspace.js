@@ -1,6 +1,6 @@
 (function () {
   const STORAGE_KEY = 'makerspace-demo-state';
-  const ADMIN_EMAIL = 'admin@stu.powayusd.com';
+  const ADMIN_EMAIL = 'krishk27411@stu.powayusd.com';
   const ACTIVE_STATUSES = ['pending', 'approved'];
   const HISTORY_STATUSES = ['rejected', 'completed'];
 
@@ -50,10 +50,10 @@
       users: [
         {
           id: 'admin-1',
-          name: 'Makerspace Admin',
+          name: 'Krish Kelageri',
           email: ADMIN_EMAIL,
-          schoolId: '1900001',
-          password: 'makerspace-admin',
+          schoolId: '1927411',
+          password: 'KrishK',
           role: 'admin'
         }
       ],
@@ -140,7 +140,7 @@
       chat = {
         id: `chat-${request.id}`,
         requestId: request.id,
-        participants: [request.email, ADMIN_EMAIL].filter(Boolean),
+        participants: withAdminParticipants(state, [request.email, user.email]),
         messages: [
           {
             sender: user.name,
@@ -154,6 +154,17 @@
       writeState(state);
     }
     return chat;
+  }
+
+  function adminEmails(state) {
+    return (state.users || [])
+      .filter(user => user && user.role === 'admin')
+      .map(user => user.email)
+      .filter(Boolean);
+  }
+
+  function withAdminParticipants(state, emails) {
+    return Array.from(new Set([...(emails || []), ...adminEmails(state)]));
   }
 
   function escapeHtml(str) {
@@ -288,6 +299,14 @@
     document.querySelectorAll('[data-auth-area]').forEach((el) => {
       const role = el.dataset.authArea;
       const shouldShow = role === 'signed-in' ? isSignedIn : !isSignedIn;
+      el.hidden = !shouldShow;
+    });
+
+    // Role-gated UI (e.g. admin-only create-admin panel)
+    document.querySelectorAll('[data-role]').forEach((el) => {
+      const requiredRole = el.dataset.role;
+      const shouldShow = !!(user && user.role === requiredRole);
+      // Keep signed-out hidden unless parent auth-area already controls it
       el.hidden = !shouldShow;
     });
 
@@ -491,7 +510,7 @@
       state.chats.unshift({
         id: `chat-${request.id}`,
         requestId: request.id,
-        participants: [user.email, ADMIN_EMAIL],
+        participants: withAdminParticipants(state, [user.email]),
         messages: [
           {
             sender: user.name,
@@ -653,16 +672,18 @@
         chat = {
           id: `chat-${request.id}`,
           requestId: request.id,
-          participants: [request.email, user.email, ADMIN_EMAIL].filter(Boolean),
+          participants: withAdminParticipants(state, [request.email, user.email]),
           messages: []
         };
         state.chats.unshift(chat);
       }
 
       chat.messages.push({ sender: user.name, senderEmail: user.email, text, ts: Date.now() });
-      if (!chat.participants.includes(ADMIN_EMAIL)) chat.participants.push(ADMIN_EMAIL);
-      if (request.email && !chat.participants.includes(request.email)) chat.participants.push(request.email);
-      if (user.email && !chat.participants.includes(user.email)) chat.participants.push(user.email);
+      chat.participants = withAdminParticipants(state, [
+        ...(chat.participants || []),
+        request.email,
+        user.email
+      ]);
       writeState(state);
       renderChat(requestId);
     });
@@ -694,6 +715,78 @@
     });
   }
 
+  function attachAdminCreateForm() {
+    const form = document.getElementById('adminCreateForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      const actor = currentUser();
+      if (!actor || actor.role !== 'admin') {
+        showAlert('#adminCreateAlert', 'Only admin accounts can create other admins.', 'error');
+        return;
+      }
+
+      const data = new FormData(form);
+      const name = (data.get('name') || '').toString().trim();
+      const email = (data.get('email') || '').toString().trim();
+      const schoolId = (data.get('schoolId') || '').toString().trim();
+      const password = (data.get('password') || '').toString();
+
+      if (!name || !email || !schoolId || !password) {
+        showAlert('#adminCreateAlert', 'Please complete every required field.', 'error');
+        return;
+      }
+
+      if (!isValidStudentEmail(email)) {
+        showAlert('#adminCreateAlert', 'Use a valid Poway school email ending in @stu.powayusd.com.', 'error');
+        return;
+      }
+
+      if (!isValidSchoolId(schoolId)) {
+        showAlert('#adminCreateAlert', 'School ID must be 7 digits and start with 19.', 'error');
+        return;
+      }
+
+      if (password.length < 4) {
+        showAlert('#adminCreateAlert', 'Password must be at least 4 characters.', 'error');
+        return;
+      }
+
+      const state = readState();
+      if (state.users.some(user => user.email.toLowerCase() === email.toLowerCase())) {
+        showAlert('#adminCreateAlert', 'An account with that email already exists.', 'error');
+        return;
+      }
+
+      if (state.users.some(user => (user.schoolId || '').toLowerCase() === schoolId.toLowerCase())) {
+        showAlert('#adminCreateAlert', 'That school ID is already in use.', 'error');
+        return;
+      }
+
+      const newAdmin = {
+        id: `admin-${Date.now()}`,
+        name,
+        email,
+        schoolId,
+        password,
+        role: 'admin',
+        createdBy: actor.email
+      };
+
+      state.users.push(newAdmin);
+      // Existing chats stay visible to every admin
+      state.chats = (state.chats || []).map((chat) => ({
+        ...chat,
+        participants: Array.from(new Set([...(chat.participants || []), newAdmin.email]))
+      }));
+      writeState(state);
+      form.reset();
+      showAlert('#adminCreateAlert', `Admin account created for ${name}. They can sign in with ${email}.`, 'success');
+    });
+  }
+
   function initializeWelcome() {
     const user = currentUser();
     const welcome = document.getElementById('welcomeUser');
@@ -710,6 +803,7 @@
     attachRequestForm();
     attachSignout();
     attachAdminActions();
+    attachAdminCreateForm();
     attachChatHandlers();
     renderRequestLists();
     renderAdminRequests();
