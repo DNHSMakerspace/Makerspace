@@ -1,0 +1,130 @@
+Title: "Algorithms"
+Description: "Algorithms are step-by-step instructions for solving problems. There are often many ways to solve the same problem, and new algorithms are constantly being developed or adapted from existing ones. Understanding and using algorithms is a key part of programming."
+topButtons:
+  - text: "JavaScript Algorithms Homework"
+    url: "/csp/big-idea-three/algorithms/javascript/hw/p3/syntaxterrors"
+    color: "bg-yellow-600 hover:bg-yellow-700 text-white"
+  - text: "Python Algorithms Homework"
+    url: "/csp/big-idea-three/algorithms/python/hw/p3/syntaxterrors"
+    color: "bg-blue-600 hover:bg-blue-700 text-white"
+Topics:
+  - title: "What is an Algorithm?"
+    keyPoints:
+      - "An algorithm is a set of steps to solve a problem."
+      - "There are often multiple algorithms for the same task."
+      - "Algorithms can be created from scratch or adapted from existing ones."
+    jsCode: |
+      // Example: Find the sum of numbers in an array
+      let numbers = [1, 2, 3, 4];
+      let sum = 0;
+      for (let i = 0; i < numbers.length; i++) {
+          sum += numbers[i];
+      }
+      console.log(sum);
+    jsExplanation: |
+      In JavaScript, an algorithm is a clear sequence of steps that solves a specific problem.<br>
+      <ul>
+        <li>Algorithms can be written using loops, conditionals, and functions.</li>
+        <li>Different programmers might use different approaches for the same task.</li>
+      </ul>
+      <span class='bg-neutral-700 px-1 rounded text-red-500'>This example adds up all the numbers in an array.</span>
+    pyCode: |
+      # Example: Find the sum of numbers in a list
+      numbers = [1, 2, 3, 4]
+      total = 0
+      for num in numbers:
+          total += num
+      print(total)
+    pyExplanation: |
+      In Python, an algorithm is just a set of instructions you write to solve a problem.<br>
+      <ul>
+        <li>You can use loops, conditionals, and functions to build algorithms for all kinds of tasks.</li>
+        <li>There are usually many ways to solve the same problem.</li>
+      </ul>
+      <span class='bg-neutral-700 px-1 rounded text-blue-500'>This example adds up all the numbers in a list.</span>
+
+  - title: "Finding the Maximum Value"
+    keyPoints:
+      - "Use a loop to compare each value."
+      - "Keep track of the largest value found so far."
+      - "Works in both JavaScript and Python."
+    jsCode: |
+      let numbers = [5, 3, 9, 1];
+      let max = numbers[0];
+      for (let i = 1; i < numbers.length; i++) {
+          if (numbers[i] > max) {
+              max = numbers[i];
+          }
+      }
+      console.log(max);
+    jsExplanation: |
+      This algorithm starts by assuming the first number is the largest.<br>
+      <ul>
+        <li>It loops through the rest of the array, updating the largest number whenever it finds a bigger one.</li>
+        <li>At the end, it prints the largest value.</li>
+      </ul>
+    pyCode: |
+      numbers = [5, 3, 9, 1]
+      max_num = numbers[0]
+      for num in numbers[1:]:
+          if num > max_num:
+              max_num = num
+      print(max_num)
+    pyExplanation: |
+      This algorithm starts by assuming the first number is the largest.<br>
+      <ul>
+        <li>It loops through the rest of the list, updating the largest number whenever it finds a bigger one.</li>
+        <li>At the end, it prints the largest value.</li>
+      </ul>
+
+  - title: "Examples of Existing Algorithms"
+    keyPoints:
+      - "Finding the maximum or minimum value in a list"
+      - "Calculating sums or averages"
+      - "Sorting a list"
+      - "Finding a path through a maze"
+      - "Compressing data"
+    jsExplanation: |
+      Many algorithms already exist for common problems.<br>
+      <ul>
+        <li>You can use built-in functions to find the largest number in an array, or use a sorting algorithm to order a list.</li>
+        <li>Using existing algorithms saves time and helps avoid bugs.</li>
+      </ul>
+    pyExplanation: |
+      Python has built-in functions and libraries for many common algorithms.<br>
+      <ul>
+        <li>For example, <span class='bg-neutral-700 px-1 rounded text-blue-500'>max()</span> finds the largest value, and <span class='bg-neutral-700 px-1 rounded text-blue-500'>sorted()</span> can sort a list.</li>
+        <li>Using these built-in options is often the best choice.</li>
+      </ul>
+
+  - title: "Why Use Existing Algorithms?"
+    keyPoints:
+      - "Saves development and testing time"
+      - "Reduces bugs by using proven solutions"
+      - "Makes debugging easier"
+      - "Always cite algorithms you use from others"
+    jsExplanation: |
+      Using existing algorithms means you can rely on code that has already been tested.<br>
+      <ul>
+        <li>This makes your programs more reliable and easier to debug.</li>
+        <li>If you use someone else's algorithm, remember to give them credit!</li>
+      </ul>
+    pyExplanation: |
+      When you use an existing algorithm, you know it works and can focus on other parts of your program.<br>
+      <ul>
+        <li>Always cite your sources if you use code or ideas from others.</li>
+      </ul>
+
+  - title: "Try It Yourself: Find the Maximum"
+    keyPoints:
+      - "Practice using an algorithm to solve a problem"
+      - "Use a loop to find the largest number in a list"
+    jsExplanation: |
+      To find the largest number in an array, you can use a loop to compare each value, or use the built-in <span class='bg-neutral-700 px-1 rounded text-red-500'>Math.max()</span> function.
+    jsTryItDescription: "Write code that prints the largest number in the array. The expected output should be '9'."
+    jsTryItHint: "Math.max(...numbers) uses the spread operator (...) to pass each array element as an argument to Math.max, which then returns the largest number."
+    jsExpectedOutput: "9"
+    pyExplanation: |
+      To find the largest number in a list, you can use a loop to compare each value, or use the built-in <span class='bg-neutral-700 px-1 rounded text-blue-500'>max()</span> function.
+    pyTryItDescription: "Write code that prints the largest number in the list. The expected output should be '9'."
+    pyExpectedOutput: "9"

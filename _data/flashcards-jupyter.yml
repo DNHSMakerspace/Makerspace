@@ -1,0 +1,36 @@
+cards:
+ - term: "What is a Jupyter Notebook?"
+   definition: "An interactive document that combines code, text, and output in a single file, made up of cells that can contain different types of content"
+ 
+ - term: "What are the three types of cells in Jupyter Notebooks?"
+   definition: "Raw cells (plain text/metadata), Markdown cells (formatted text), and Code cells (executable Python code)"
+ 
+ - term: "What is a Raw cell used for?"
+   definition: "Contains plain text that isn't processed as code or markdown - often used for frontmatter metadata"
+ 
+ - term: "What is a Markdown cell used for?"
+   definition: "Lets you write formatted text with headings, lists, links, and explanations of what your code does"
+ 
+ - term: "What is a Code cell used for?"
+   definition: "Contains executable Python code - when you run these cells, the output appears below them"
+ 
+ - term: "What is frontmatter?"
+   definition: "Metadata written in YAML format at the top of a notebook that tells the website how to process and display the content"
+ 
+ - term: "What frontmatter fields control webpage display?"
+   definition: "title (page title), comments (enable/disable), layout (HTML template), permalink (custom URL), and author (content creator)"
+ 
+ - term: "What does nbconvert do?"
+   definition: "Processes and converts Jupyter notebooks into HTML files for websites by reading the notebook, processing frontmatter, converting cells, and applying styling"
+ 
+ - term: "What is the complete workflow from notebook to website?"
+   definition: "Create notebook → Add frontmatter → Run nbconvert → Website displays the converted HTML in the _posts directory"
+ 
+ - term: "How do you run a code cell in Jupyter?"
+   definition: "Use Shift+Enter or click the play button to execute code cells"
+ 
+ - term: "Why must you select the correct kernel?"
+   definition: "The kernel must match your virtual environment so that all required packages are available and modules can be imported properly"
+ 
+ - term: "Where do converted HTML files get saved?"
+   definition: "In the _posts directory where your website can find and display them"

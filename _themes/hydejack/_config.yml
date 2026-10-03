@@ -1,0 +1,98 @@
+lang:                  en
+title:                 Open Coding Society
+copyright:             © 2024. All rights reserved.
+
+accent_image:          /images/ocs_wallpaper.png
+accent_color:          rgb(224, 102, 101)
+theme_color:           rgb(100, 100, 100)
+
+google_fonts:          false
+
+menu:
+  - title: CSSE
+    url: /navigation/courses/csse/
+  - title: CSP
+    url: /navigation/courses/csp/
+  - title: CSA
+    url: /navigation/courses/csa/
+  - title: CSH
+    url: /navigation/courses/csh/
+  - title: Blog
+    url: /navigation/blogs/
+  - title: Search
+    url: /navigation/search/
+  - title: Login
+    url: /login/
+hydejack:
+  post_addons:         [about, newsletter, related, random, comments]
+  project_addons:      [about, newsletter, other, comments]
+
+  no_mark_external:    false
+  no_push_state:       false
+  no_drawer:           false
+  no_navbar:           false
+  no_search:           false
+  no_inline_css:       false
+  no_page_style:       false
+  no_break_layout:     true
+  no_toc:              false
+  no_third_column:     false
+  no_large_headings:   false
+  no_structured_data:  false
+  no_theme_color:      false
+  no_breadcrumbs:      false
+
+  use_lsi:             true
+  cookies_banner:      true
+  advertise:           true
+  hide_dates:          false
+  hide_last_modified:  false
+
+  dark_mode:
+    always:            false
+    dynamic:           true
+    sunrise:           6
+    sunset:            18
+    icon:              true
+
+  offline:
+    enabled:           false
+    cache_version:     1
+    precache_assets:
+      - /assets/img/swipe.svg
+
+optional_front_matter:
+  remove_originals:    true
+
+readme_index:
+  remove_originals:    true
+  with_frontmatter:    true
+
+relative_links:
+  collections:         true
+
+titles_from_headings:
+  strip_title:         true
+  collections:         true
+
+compress_html:
+  comments:            ["<!-- ", " -->"]
+  clippings:           all
+  endings:             all
+  ignore:
+    envs:              [development]
+
+sass:
+  style:               compressed
+  load_paths:
+    - _sass
+
+# Site-wide settings
+remote_theme: hydecorp/hydejack@v9.2.1
+
+
+# Plugins
+plugins:
+  - jekyll-remote-theme
+  - jekyll-include-cache
+

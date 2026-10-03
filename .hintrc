@@ -1,0 +1,16 @@
+{
+  "extends": [
+    "development"
+  ],
+  "hints": {
+    "meta-charset-utf-8": "off",
+    "meta-viewport": "off",
+    "axe/text-alternatives": "off",
+    "axe/language": "off",
+    "axe/forms": "off",
+    "apple-touch-icons": "off",
+    "disown-opener": "off",
+    "no-inline-styles": "off",
+    "compat-api/html": "off"
+  }
+}

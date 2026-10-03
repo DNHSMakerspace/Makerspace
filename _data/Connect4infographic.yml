@@ -1,0 +1,47 @@
+# course illustrations
+Title: "Connect 4 Foundations"
+Description: "Master Connect 4 while learning core CS skills. Each section maps real gameplay to programming concepts you’ll reuse in bigger projects."
+Topics:
+  - title: "Connect 4 lesson Overview"
+    image: "/connect4/overview.png"
+    link: "/connect4/lesson/overview"
+    alt: "Connect 4 Overview"
+    keyPoints:
+      - "State: board, turns, timers"
+      - "UI: responsive 6×7 grid"
+      - "Flow: start, play, win, restart"
+    subtitle: "What to Learn"
+    description: "A fast tour of the skills you’ll build: state-driven UI, event handling, animations, and the full game loop."
+
+  - title: "Object-Oriented Programming"
+    image: "/connect4/oop.png"
+    link: "/connect4/lesson/oop"
+    alt: "OOP Concepts"
+    keyPoints:
+      - "Player, GameBoard, Game classes"
+      - "Encapsulation & single responsibility"
+      - "Timers and UI coordination"
+    subtitle: "Organize Your Code"
+    description: "Refactor the game into classes so logic is clean, testable, and easy to extend."
+
+  - title: "Algorithms"
+    image: "/connect4/algorithms.png"
+    link: "/connect4/lesson/algorithms"
+    alt: "Algorithms"
+    keyPoints:
+      - "Win detection in 4 directions"
+      - "Landing-row calculation"
+      - "Winning-coordinates highlight"
+    subtitle: "Problem-Solving"
+    description: "Implement efficient checks for four-in-a-row, compute landing spots, and return winning cells for visual feedback."
+
+  - title: "Learning Challenges"
+    image: "/connect4/challenges.png"
+    link: "/connect4/lesson/challenges"
+    alt: "Build-It Challenges"
+    keyPoints:
+      - "Undo stack & move history"
+      - "Settings + localStorage"
+      - "Scoreboard & keyboard controls"
+    subtitle: "Apply & Extend"
+    description: "Ship features that deepen understanding—persistence, accessibility, and polish. Stretch goal: basic AI."

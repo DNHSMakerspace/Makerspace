@@ -1,0 +1,22 @@
+@import "common.scss";
+@import "../../materials/main.scss";
+
+// OCS input grammar.
+// Keep gradientInput as a legacy alias for existing pages.
+input.ocs__input.gradient,
+input.gradientInput {
+    background-image: $gradient1;
+}
+
+.inputIconGroup>ion-icon {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    /* Adjust based on desired spacing */
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    /* Adjust the size of the icon */
+    color: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+    /* Ensure the icon does not interfere with input focus */
+}

@@ -1,0 +1,124 @@
+@import "materials/main.scss";
+
+.language-reference__toolbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1.5rem 0;
+}
+
+.language-reference__toolbar .ocs__links {
+    margin: 0;
+}
+
+.language-reference__search {
+    position: relative;
+    flex: 1 1 18rem;
+    max-width: 30rem;
+    margin: 0;
+    order: 1;
+}
+
+.language-reference__search .search-results-wrap {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 24rem;
+    overflow-y: auto;
+    background: var(--panel, var(--pref-bg-color, #fff));
+    border: 1px solid var(--ui-border, currentColor);
+    box-shadow: 0 0.75rem 1.5rem color-mix(in srgb, var(--pref-text-color, #000) 18%, transparent);
+}
+
+.language-reference__toolbar .ocs__links {
+    order: 2;
+    margin-left: auto;
+}
+
+@media (max-width: 48rem) {
+    .language-reference__search {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .language-reference__toolbar .ocs__links {
+        margin-left: 0;
+    }
+}
+
+/* Language reference cards support either a full-card link or a trailing
+   action button. Grid rows already stretch cards in a row to equal height. */
+.language-reference__cards .ocs__grid-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.language-reference__cards > a.ocs__grid-cell {
+    width: 100%;
+    margin: 0;
+    color: var(--pref-text-color);
+    text-decoration: none;
+}
+
+.language-reference__cards > .ocs__grid-cell > h2 {
+    max-width: 100%;
+    margin-inline: 0;
+    font-size: $text-lg;
+    overflow-wrap: anywhere;
+}
+
+/* Both are inline by default; as flex items they would otherwise stretch to
+   the full card width. */
+.language-reference__cards .ocs__grid-cell > .ocs__status-pill,
+.language-reference__cards .ocs__grid-cell > .ocs__btn {
+    align-self: flex-start;
+}
+
+.language-reference__cards .ocs__grid-cell > .ocs__btn {
+    margin-top: auto;
+}
+
+.search-result-preview {
+    // the text
+
+    color: $gray1 !important;
+    list-style-type: none !important;
+    list-style: none !important;
+    background-color: #1e1e1e !important;
+    border-bottom-left-radius: $border-size;
+    border-bottom-right-radius: $border-size;
+
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.search-result-highlight {
+    color: $lightBlue1 !important;
+    font-weight: bold !important;
+    list-style-type: none !important;
+    list-style: none !important;
+}
+
+.search-results-list-item .search-result-title {
+    // the title
+    color: $white1 !important;
+    list-style-type: none !important;
+    border-top-left-radius: $border-size;
+    border-top-right-radius: $border-size;
+    background-color: #1e1e1e !important;
+
+    padding: 10px;
+}
+
+.search-results-list-item {
+    list-style-type: none !important;
+    margin-bottom: 10px !important;
+}

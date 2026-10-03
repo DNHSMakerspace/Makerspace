@@ -1,0 +1,27 @@
+title: Open Coding 
+description: "Class of 2026"
+owner_name: Open Coding Society 
+github_username: open-coding-society 
+github_repo: "pages" 
+baseurl: "" 
+future: true
+
+minima:
+  skin: dark
+  social_links:
+    - { platform: github, user_url: "https://github.com/open-coding-society" }
+    - { platform: x, user_url: "https://x.com/Open_Coding" }
+    - { platform: youtube, user_url: "https://www.youtube.com/@OpenCodingSociety" } 
+
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+  - jekyll-remote-theme
+
+header_pages:
+  - navigation/courses/csse.md
+  - navigation/courses/csp.md
+  - navigation/courses/csa.md
+  - navigation/courses/csh.md
+  - navigation/blog.md
+  - navigation/search.md
+  - navigation/logintoolkit.md

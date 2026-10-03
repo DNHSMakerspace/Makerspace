@@ -1,0 +1,90 @@
+cards:
+  - term: "What is the Player class?"
+    definition: "A class that represents a player, storing their name and symbol (X or O)."
+
+  - term: "What is the Board class?"
+    definition: "A class that manages the state of the Tic-Tac-Toe board and related functionality."
+
+  - term: "What is the TicTacToe class?"
+    definition: "A class that controls the game flow, player switching, and the main play loop."
+
+  - term: "What does the symbol attribute represent in Player?"
+    definition: "It holds the character (X or O) used by the player to mark their moves."
+
+  - term: "How is the board stored in the Board class?"
+    definition: "As a list of 9 strings, each representing one position on the board."
+
+  - term: "What does display() do in the Board class?"
+    definition: "It prints the current state of the game board to the console."
+
+  - term: "What does display_reference() do?"
+    definition: "It prints a numbered reference board to guide user input."
+
+  - term: "What does is_full() check for?"
+    definition: "It returns True if there are no more empty spaces on the board."
+
+  - term: "What does make_move() do?"
+    definition: "Attempts to place the player's symbol at the specified position if valid."
+
+  - term: "How does make_move() handle invalid positions?"
+    definition: "It returns False and prints an error if the position is out of range or already taken."
+
+  - term: "What does check_winner() do?"
+    definition: "It checks all win combinations to see if the specified symbol has won."
+
+  - term: "What are the win conditions?"
+    definition: "Three matching symbols in a row, column, or diagonal."
+
+  - term: "How is a winning combination represented?"
+    definition: "As a list of index triplets like [0, 1, 2] in check_winner()."
+
+  - term: "What is the purpose of switch_player()?"
+    definition: "It changes the current player to the other player."
+
+  - term: "What does the play() method do?"
+    definition: "It runs the game loop, taking input, updating the board, and checking for wins or ties."
+
+  - term: "How are players prompted for input?"
+    definition: "With input() asking for a move between 1 and 9."
+
+  - term: "What happens if non-numeric input is given?"
+    definition: "A ValueError is caught and the user is prompted again."
+
+  - term: "What causes the game loop to end?"
+    definition: "A win or tie condition triggers a break from the loop."
+
+  - term: "How does the game handle a tie?"
+    definition: "If the board is full and no player has won, it declares a tie."
+
+  - term: "What is object-oriented programming?"
+    definition: "A programming paradigm based on objects that encapsulate data and behavior."
+
+  - term: "What is encapsulation in OOP?"
+    definition: "The bundling of related data and methods into classes."
+
+  - term: "How is encapsulation used in this game?"
+    definition: "Classes like Player and Board group related attributes and methods."
+
+  - term: "What is __init__ in Python?"
+    definition: "A constructor method used to initialize a class's attributes."
+
+  - term: "How are players stored in TicTacToe?"
+    definition: "As a list of two Player objects."
+
+  - term: "How does the game track whose turn it is?"
+    definition: "Using the current_player attribute in the TicTacToe class."
+
+  - term: "Why is Board.display_reference() helpful?"
+    definition: "It shows users which number maps to which board position."
+
+  - term: "What happens if a user selects a filled space?"
+    definition: "make_move() returns False and the user is prompted again."
+
+  - term: "What type of error is caught when input is not an integer?"
+    definition: "ValueError."
+
+  - term: "How are moves validated?"
+    definition: "By checking that the position is between 1 and 9 and not already occupied."
+
+  - term: "What is the main responsibility of the TicTacToe class?"
+    definition: "Managing the game flow and player turns."

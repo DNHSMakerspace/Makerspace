@@ -1,0 +1,8 @@
+.glass {
+    backdrop-filter: blur(30px);
+}
+
+.tintedGlass {
+    @extend .glass;
+    background: var(--glass-tint);
+}

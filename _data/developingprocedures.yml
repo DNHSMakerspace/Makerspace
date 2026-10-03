@@ -1,0 +1,277 @@
+Title: "Procedural Abstraction"
+Description: "Procedures are a powerful example of abstraction in programming. Procedural abstraction lets you use procedures without knowing exactly how they work, making code simpler, more readable, and easier to manage."
+topButtons:
+  - text: "JavaScript Developing Procedures Homework"
+    url: "/csp/big-idea-three/developingprocedures/javascript/hw/p3/syntaxterrors"
+    color: "bg-yellow-600 hover:bg-yellow-700 text-white"
+  - text: "Python Developing Procedures Homework"
+    url: "/csp/big-idea-three/developingprocedures/python/hw/p3/syntaxterrors"
+    color: "bg-blue-600 hover:bg-blue-700 text-white"
+Topics:
+  - title: "Developing vs. Calling a Procedure"
+    keyPoints:
+      - "Developing a procedure means writing the code for what it does."
+      - "Calling a procedure means using it in your program."
+      - "You must develop (define) a procedure before you can call it."
+    jsCode: |
+      // Developing (defining) the procedure
+      function double(num) {
+          console.log(num * 2);
+      }
+      // Calling the procedure
+      double(5);
+    jsExplanation: |
+      <b>Developing</b> a procedure is when you write the function itself, including its name, parameters, and instructions.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-red-500'>function double(num) { console.log(num * 2); }</span></li>
+      </ul>
+      <b>Calling</b> a procedure is when you use its name to make it run.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-red-500'>double(5);</span></li>
+      </ul>
+    pyCode: |
+      # Developing (defining) the procedure
+      def double(num):
+          print(num * 2)
+      # Calling the procedure
+      double(5)
+    pyExplanation: |
+      <b>Developing</b> a procedure is when you write the function, including its name, parameters, and instructions.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-blue-500'>def double(num): print(num * 2)</span></li>
+      </ul>
+      <b>Calling</b> a procedure is when you use its name to make it run.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-blue-500'>double(5)</span></li>
+      </ul>
+
+  - title: "What is Procedural Abstraction?"
+    keyPoints:
+      - "Procedures are a special form of abstraction"
+      - "You can use a procedure without knowing its inner details"
+      - "Built-in procedures like <span class='bg-neutral-700 px-1 rounded text-blue-500'>print()</span> are common examples"
+    jsCode: |
+      // You can use built-in procedures like console.log()
+      console.log("Hello, world!");
+    jsExplanation: |
+      In JavaScript, <span class='bg-neutral-700 px-1 rounded text-red-500'>console.log()</span> is a built-in procedure.<br>
+      You use it to print messages, without needing to know how it works inside.<br>
+      This is procedural abstraction: you use the procedure, but don't need to see its code.
+    pyCode: |
+      # You can use built-in procedures like print()
+      print("Hello, world!")
+    pyExplanation: |
+      In Python, <span class='bg-neutral-700 px-1 rounded text-blue-500'>print()</span> is a built-in procedure.<br>
+      You use it to display messages, without needing to know how it works inside.<br>
+      This is procedural abstraction: you use the procedure, but don't need to see its code.
+
+  - title: "Solving Problems with Procedures"
+    keyPoints:
+      - "Break big problems into smaller sub-problems"
+      - "Solve each sub-problem with a procedure"
+      - "Combine procedures to solve the whole problem"
+    jsCode: |
+      // Example: Choose-your-own-adventure game
+      function displayChoice(choice) {
+          console.log("You chose: " + choice);
+      }
+
+      function trackProgress(step) {
+          // ...code to track progress
+      }
+
+      // Combine procedures to build the game
+      displayChoice("forest");
+      trackProgress(1);
+    jsExplanation: |
+      In JavaScript, you can break a big problem (like a game) into smaller pieces.<br>
+      <ul>
+        <li>Write a procedure for each sub-problem (like displaying choices or tracking progress).</li>
+        <li>Call these procedures to build your program.</li>
+      </ul>
+      This makes your code easier to manage and understand.
+    pyCode: |
+      # Example: Choose-your-own-adventure game
+      def display_choice(choice):
+          print("You chose:", choice)
+
+      def track_progress(step):
+          # ...code to track progress
+          pass
+
+      # Combine procedures to build the game
+      display_choice("forest")
+      track_progress(1)
+    pyExplanation: |
+      In Python, you can break a big problem (like a game) into smaller pieces.<br>
+      <ul>
+        <li>Write a procedure for each sub-problem (like displaying choices or tracking progress).</li>
+        <li>Call these procedures to build your program.</li>
+      </ul>
+      This makes your code easier to manage and understand.
+
+  - title: "Modularity"
+    keyPoints:
+      - "Divide your program into separate sub-programs"
+      - "Each procedure solves a specific part of the problem"
+      - "Modularity makes code easier to read and maintain"
+    jsCode: |
+      function add(a, b) {
+          return a + b;
+      }
+
+      function print_sum(a, b) {
+          console.log(add(a, b));
+      }
+
+      print_sum(7, 5);
+      print_sum(8, 2);
+      print_sum(9, 3);
+    jsExplanation: |
+      In JavaScript, modularity means dividing your code into small, reusable procedures.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>add()</span> does the calculation.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>print_sum()</span> prints the result.</li>
+        <li>Call these procedures as needed.</li>
+      </ul>
+      This keeps your code organized and easy to update.
+    pyCode: |
+      def add(a, b):
+          return a + b
+
+      def print_sum(a, b):
+          print(add(a, b))
+
+      print_sum(7, 5)
+      print_sum(8, 2)
+      print_sum(9, 3)
+    pyExplanation: |
+      In Python, modularity means dividing your code into small, reusable procedures.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>add()</span> does the calculation.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>print_sum()</span> prints the result.</li>
+        <li>Call these procedures as needed.</li>
+      </ul>
+      This keeps your code organized and easy to update.
+
+  - title: "Code Reuse and Readability"
+    keyPoints:
+      - "Procedures can be reused with different inputs"
+      - "Parameters make procedures flexible"
+      - "Procedures simplify and clarify your code"
+    jsCode: |
+      function summingMachine(first, second) {
+          let sum = first + second;
+          console.log(sum);
+      }
+
+      summingMachine(5, 7);
+      summingMachine(8, 2);
+      summingMachine(9, 3);
+    jsExplanation: |
+      In JavaScript, you can reuse procedures by calling them with different inputs.<br>
+      <ul>
+        <li>Parameters let you use the same procedure for many cases.</li>
+        <li>Your code is shorter and easier to read.</li>
+      </ul>
+      This is especially helpful in large programs.
+    pyCode: |
+      def summing_machine(first, second):
+          sum_value = first + second
+          print(sum_value)
+
+      summing_machine(5, 7)
+      summing_machine(8, 2)
+      summing_machine(9, 3)
+    pyExplanation: |
+      In Python, you can reuse procedures by calling them with different inputs.<br>
+      <ul>
+        <li>Parameters let you use the same procedure for many cases.</li>
+        <li>Your code is shorter and easier to read.</li>
+      </ul>
+      This is especially helpful in large programs.
+
+  - title: "Return Statements"
+    keyPoints:
+      - "Use <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span> to send a value back"
+      - "Return ends the procedure immediately"
+      - "You can return from anywhere inside the procedure"
+    jsCode: |
+      function multiply(a, b) {
+          if (a === 0 || b === 0) {
+              return 0;
+          }
+          return a * b;
+      }
+      console.log(multiply(3, 4)); // 12
+      console.log(multiply(0, 5)); // 0
+    jsExplanation: |
+      In JavaScript, <span class='bg-neutral-700 px-1 rounded text-red-500'>return</span> sends a value back and ends the procedure.<br>
+      <ul>
+        <li>You can use <span class='bg-neutral-700 px-1 rounded text-red-500'>return</span> anywhere in your function.</li>
+        <li>After <span class='bg-neutral-700 px-1 rounded text-red-500'>return</span>, the function stops and goes back to where it was called.</li>
+      </ul>
+      This lets you control what your procedure gives back.
+    pyCode: |
+      def multiply(a, b):
+          if a == 0 or b == 0:
+              return 0
+          return a * b
+
+      print(multiply(3, 4))  # 12
+      print(multiply(0, 5))  # 0
+    pyExplanation: |
+      In Python, <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span> sends a value back and ends the procedure.<br>
+      <ul>
+        <li>You can use <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span> anywhere in your function.</li>
+        <li>After <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span>, the function stops and goes back to where it was called.</li>
+      </ul>
+      This lets you control what your procedure gives back.
+
+  - title: "Flexibility and Maintenance"
+    keyPoints:
+      - "Procedural abstraction lets you change code in one place"
+      - "You can fix or improve a procedure without changing the whole program"
+      - "Updates apply everywhere the procedure is used"
+    jsCode: |
+      function greet(name) {
+          return "Hello, " + name + "!";
+      }
+      // If you want to change the greeting, update the function once
+    jsExplanation: |
+      In JavaScript, if you need to fix or improve a procedure, you only change it in one place.<br>
+      <ul>
+        <li>All calls to the procedure use the updated version.</li>
+        <li>This makes your code easier to maintain and update.</li>
+      </ul>
+      Procedural abstraction helps keep your programs flexible.
+    pyCode: |
+      def greet(name):
+          return "Hello, " + name + "!"
+      # If you want to change the greeting, update the function once
+    pyExplanation: |
+      In Python, if you need to fix or improve a procedure, you only change it in one place.<br>
+      <ul>
+        <li>All calls to the procedure use the updated version.</li>
+        <li>This makes your code easier to maintain and update.</li>
+      </ul>
+      Procedural abstraction helps keep your programs flexible.
+
+  - title: "Try It Yourself: Write and Call a Procedure"
+    keyPoints:
+      - "Practice creating your own procedure"
+      - "Call your procedure with different values"
+    jsExplanation: |
+      Create a function named <span class='bg-neutral-700 px-1 rounded text-red-500'>greet</span> that takes a parameter for the name.<br>
+      Inside the function, print a greeting using <span class='bg-neutral-700 px-1 rounded text-red-500'>console.log()</span>.<br>
+      Finally, call your function with the argument <span class='bg-neutral-700 px-1 rounded text-red-500'>"Alex"</span>.
+    jsTryItDescription: "Write a function called greet that takes a name and prints 'Hello, ' plus the name. Then call your function with the name 'Alex'."
+    jsTryItHint: "Remember to use function greet(name) { ... } and call it with greet('Alex')."
+    jsExpectedOutput: "Hello, Alex"
+    pyExplanation: |
+      Create a function named <span class='bg-neutral-700 px-1 rounded text-blue-500'>greet</span> that takes a parameter for the name.<br>
+      Inside the function, print a greeting using <span class='bg-neutral-700 px-1 rounded text-blue-500'>print()</span>.<br>
+      Finally, call your function with the argument <span class='bg-neutral-700 px-1 rounded text-blue-500'>"Alex"</span>.
+    pyTryItDescription: "Write a function called greet that takes a name and prints 'Hello, ' plus the name. Then call your function with the name 'Alex'."
+    pyTryItHint: "Remember to use def greet(name): and call it with greet('Alex')."
+    pyExpectedOutput: "Hello, Alex"

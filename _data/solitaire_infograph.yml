@@ -1,0 +1,38 @@
+# course illustrations
+Title: "Solitaire Foundations"
+Description: "Learn how to play and understand the logic behind Solitaire. These sections introduce the essential skills players develop while interacting with the game, connecting coding concepts to gameplay."
+Topics:
+  - title: "Frontend Interaction Skills"
+    image: "/solitaire/frontend.png"
+    link: "/solitaire/lesson/frontend"
+    alt: "Frontend Interaction"
+    keyPoints:
+      - "Click and drag cards"
+      - "Understand rules through interaction"
+      - "Gain feedback visually"
+    subtitle: "User Interface Basics"
+    description: "Players build interaction skills by moving cards across piles. This mirrors how frontend interfaces teach users to work with drag, drop, and click-based systems."
+
+  - title: "Object-Oriented Programming (OOP) Concepts"
+    image: "/solitaire/oop.png"
+    link: "/solitaire/lesson/oop"
+    alt: "OOP Concepts"
+    keyPoints:
+      - "Cards as objects"
+      - "Piles as collections"
+      - "Rules as class methods"
+      - "Inheritance and reuse"
+    subtitle: "Programming Mindset"
+    description: "Each card and pile in Solitaire represents an object. Through play, students can connect OOP concepts like classes, methods, and inheritance to real actions in the game."
+
+  - title: "Problem-Solving and Algorithmic Thinking"
+    image: "/solitaire/problem-solving.png"
+    link: "/solitaire/lesson/problem-solving"
+    alt: "Problem Solving"
+    keyPoints:
+      - "Plan moves ahead"
+      - "Uncover hidden cards"
+      - "Optimize decisions"
+      - "Apply logical steps"
+    subtitle: "Strategic Thinking"
+    description: "Solitaire encourages algorithmic reasoning. Players analyze options, plan sequences of moves, and apply logical thinking—the same steps used in coding and algorithm design."

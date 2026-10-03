@@ -1,0 +1,30 @@
+# Welcome to Jekyll!
+#
+# This config file is meant for settings that affect your whole blog, values
+# which you are expected to set up once and rarely need to edit after that.
+# For technical reasons, this file is *NOT* reloaded automatically when you use
+# 'jekyll serve'. If you change this file, please restart the server process.
+#
+# ,--------.      ,--.   ,--. ,--.
+# '--.  .--',---.  \  `.'  /,-'  '-.
+#    |  |  | .-. :  .'    \ '-.  .-'
+#    |  |  \   --. /  .'.  \  |  |
+#    `--'   `----''--'   '--' `--'
+
+
+title: "Open Coding Society"
+description: "Class of 2025"
+url: "https://pages.opencodingsociety.com"
+baseurl: ""   # DO NOT set /pages
+
+text_skin: dark
+highlight_theme: tomorrow-night-bright
+
+remote_theme: "kitian616/jekyll-TeXt-theme@v2.2.6" # Or the desired version
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-remote-theme
+
+sources: bootcdn

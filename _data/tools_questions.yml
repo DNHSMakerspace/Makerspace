@@ -1,0 +1,11 @@
+# filepath: _data/tools_questions.yml
+questions:
+  - id: "tools-setup-issue"
+    title: "Track Your Tool Setup with a GitHub Issue"
+    question: |
+      Create a GitHub Issue in your personal repository to log your tool setup progress. Use this space to log daily success and progress.
+
+  - id: "tools-setup-time"
+    title: "Log and Reflect on Your Setup Time"
+    question: |
+      Estimate how long it took you to set up your tools today (in minutes). Use this space to form thoughts on time and things that are confusing.

@@ -1,0 +1,188 @@
+Title: "Calling Procedures"
+Description: "A procedure is a group of programming instructions, also known as a function or method. Procedures let you reuse code and organize your program. Learn how to define, call, and use procedures in Python and JavaScript."
+
+topButtons:
+  - text: "JavaScript Calling Procedures Homework"
+    url: "/csp/big-idea-three/calling-procedures/javascript/hw/p3/syntaxterrors"
+    color: "bg-yellow-600 hover:bg-yellow-700 text-white"
+  - text: "Python Calling Procedures Homework"
+    url: "/csp/big-idea-three/calling-procedures/python/hw/p3/syntaxterrors"
+    color: "bg-blue-600 hover:bg-blue-700 text-white"
+
+Topics:
+  - title: "What is a Procedure?"
+    keyPoints:
+      - "A procedure is a reusable group of instructions"
+      - "Also called functions or methods"
+      - "Lets you avoid rewriting the same code"
+    jsCode: |
+      // A procedure (function) to display a message
+      function showMessage() {
+          console.log("Welcome to the program!");
+      }
+    jsExplanation: |
+      In JavaScript, a procedure is called a <span class='text-red-500'>function</span>.<br>
+      <ul>
+        <li>Use the <span class='bg-neutral-700 px-1 rounded text-red-500'>function</span> keyword to define a procedure.</li>
+        <li>Write your instructions inside curly braces <span class='bg-neutral-700 px-1 rounded text-red-500'>{}</span>.</li>
+      </ul>
+      This function displays a welcome message.
+    pyCode: |
+      # A procedure (function) to display a message
+      def show_message():
+          print("Welcome to the program!")
+    pyExplanation: |
+      In Python, a procedure is called a <span class='text-blue-500'>function</span>.<br>
+      <ul>
+        <li>Use the <span class='bg-neutral-700 px-1 rounded text-blue-500'>def</span> keyword to define a procedure.</li>
+        <li>Write your instructions inside an indented block.</li>
+      </ul>
+      This function displays a welcome message.
+
+  - title: "Parts of a Procedure"
+    keyPoints:
+      - "Procedures can have parameters (inputs)"
+      - "Parameters are variables used inside the procedure"
+      - "You can define procedures with or without parameters"
+    jsCode: |
+      // Function with parameters
+      function multiplyNumbers(a, b) {
+          console.log(a * b);
+      }
+    jsExplanation: |
+      In JavaScript, parameters go inside the parentheses.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>a</span> and <span class='bg-neutral-700 px-1 rounded text-red-500'>b</span> are parameters.</li>
+        <li>The function multiplies them and prints the result.</li>
+      </ul>
+      You can use any number of parameters.
+    pyCode: |
+      # Function with parameters
+      def multiply_numbers(a, b):
+          print(a * b)
+    pyExplanation: |
+      In Python, parameters go inside the parentheses.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>a</span> and <span class='bg-neutral-700 px-1 rounded text-blue-500'>b</span> are parameters.</li>
+        <li>The function multiplies them and prints the result.</li>
+      </ul>
+      You can use any number of parameters.
+    
+  - title: "Developing vs. Calling a Procedure"
+    keyPoints:
+      - "Developing a procedure means writing the code for what it does."
+      - "Calling a procedure means using it in your program."
+      - "You must develop (define) a procedure before you can call it."
+    jsCode: |
+      // Developing (defining) the procedure
+      function double(num) {
+          console.log(num * 2);
+      }
+      // Calling the procedure
+      double(5);
+    jsExplanation: |
+      <b>Developing</b> a procedure is when you write the function itself, including its name, parameters, and instructions.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-red-500'>function double(num) { console.log(num * 2); }</span></li>
+      </ul>
+      <b>Calling</b> a procedure is when you use its name to make it run.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-red-500'>double(5);</span></li>
+      </ul>
+    pyCode: |
+      # Developing (defining) the procedure
+      def double(num):
+          print(num * 2)
+      # Calling the procedure
+      double(5)
+    pyExplanation: |
+      <b>Developing</b> a procedure is when you write the function, including its name, parameters, and instructions.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-blue-500'>def double(num): print(num * 2)</span></li>
+      </ul>
+      <b>Calling</b> a procedure is when you use its name to make it run.<br>
+      <ul>
+        <li>Example: <span class='bg-neutral-700 px-1 rounded text-blue-500'>double(5)</span></li>
+      </ul>
+
+  - title: "Calling a Procedure"
+    keyPoints:
+      - "Call a procedure by its name"
+      - "Provide arguments if it has parameters"
+      - "Arguments are the actual values you use"
+    jsCode: |
+      // Call the function with arguments
+      multiplyNumbers(3, 4); // Output: 12
+      multiplyNumbers(7, 2); // Output: 14
+    jsExplanation: |
+      When you call a procedure, you use its name and provide arguments.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>multiplyNumbers(3, 4)</span> calls the function with 3 and 4.</li>
+        <li>The function prints 12.</li>
+      </ul>
+      Arguments are the actual values you use when calling the procedure.
+    pyCode: |
+      # Call the function with arguments
+      multiply_numbers(3, 4)  # Output: 12
+      multiply_numbers(7, 2)  # Output: 14
+    pyExplanation: |
+      When you call a procedure, you use its name and provide arguments.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>multiply_numbers(3, 4)</span> calls the function with 3 and 4.</li>
+        <li>The function prints 12.</li>
+      </ul>
+      Arguments are the actual values you use when calling the procedure.
+
+  - title: "Using Return Statements"
+    keyPoints:
+      - "Use <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span> to send a value back"
+      - "Return ends the procedure immediately"
+      - "Returned values can be used elsewhere in your code"
+    jsCode: |
+      function addNumbers(a, b) {
+          let sum = a + b;
+          return sum;
+      }
+
+      let result = addNumbers(5, 7);
+      console.log(result); // Output: 12
+    jsExplanation: |
+      In JavaScript, <span class='bg-neutral-700 px-1 rounded text-red-500'>return</span> sends a value back.<br>
+      <ul>
+        <li>The function adds two numbers and returns the sum.</li>
+        <li>You can store the returned value in a variable.</li>
+      </ul>
+      <span class='bg-neutral-700 px-1 rounded text-red-500'>return</span> ends the function and gives back the result.
+    pyCode: |
+      def add_numbers(a, b):
+          sum_value = a + b
+          return sum_value
+
+      answer = add_numbers(5, 7)
+      print(answer)  # Output: 12
+    pyExplanation: |
+      In Python, <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span> sends a value back.<br>
+      <ul>
+        <li>The function adds two numbers and returns the sum.</li>
+        <li>You can store the returned value in a variable.</li>
+      </ul>
+      <span class='bg-neutral-700 px-1 rounded text-blue-500'>return</span> ends the function and gives back the result.
+
+  - title: "Try It Yourself: Call a Procedure"
+    keyPoints:
+      - "Practice calling a procedure with an argument"
+      - "See how the procedure uses your input"
+    jsExplanation: |
+      Create a function named <span class='bg-neutral-700 px-1 rounded text-red-500'>doubleNumber</span> that takes a number as a parameter.<br>
+      Inside the function, print double the value using <span class='bg-neutral-700 px-1 rounded text-red-500'>console.log()</span>.<br>
+      Finally, call your function with the argument <span class='bg-neutral-700 px-1 rounded text-red-500'>6</span>.
+    jsTryItDescription: "Write a function called doubleNumber that takes a number and prints double its value. Then call your function with the number 6."
+    jsTryItHint: "Remember to use function doubleNumber(num) { ... } and call it with doubleNumber(6)."
+    jsExpectedOutput: "12"
+    pyExplanation: |
+      Create a function named <span class='bg-neutral-700 px-1 rounded text-blue-500'>double_number</span> that takes a number as a parameter.<br>
+      Inside the function, print double the value using <span class='bg-neutral-700 px-1 rounded text-blue-500'>print()</span>.<br>
+      Finally, call your function with the argument <span class='bg-neutral-700 px-1 rounded text-blue-500'>6</span>.
+    pyTryItDescription: "Write a function called double_number that takes a number and prints double its value. Then call your function with the number 6."
+    pyTryItHint: "Remember to use def double_number(num): and call it with double_number(6)."
+    pyExpectedOutput: "12"

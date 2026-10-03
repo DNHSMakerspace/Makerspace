@@ -1,0 +1,49 @@
+# course illustrations
+Title: "Snake Game Foundations"
+Description: "Learn how to build and understand the logic behind Snake. These sections introduce the essential programming skills developers use while creating the game, connecting coding concepts to game development."
+Topics:
+  - title: "Snake Game Debugging"
+    image: "/agile/pair_trio.png"
+    link: "/agile/pair_trio"
+    alt: "Pair/Trio Programming with Snake"
+    keyPoints:
+      - "Collaborate in real-time with the snake game"
+      - "Establish ceremonies in the team"
+      - "Share and collaboorate on knowledge"
+    subtitle: "Snake Game"
+    description: "Snake is a genre of action video games where the player maneuvers the end of a growing line, often themed as a snake. The player must keep the snake from colliding with both other obstacles and itself, which gets harder as the snake lengthens."
+
+  - title: "Frontend"
+    image: "/snake/frontend.png"
+    link: "/snake/lesson/frontend"
+    alt: "Frontend Development"
+    keyPoints:
+      - "HTML canvas and menus"
+      - "CSS styling and transitions"
+      - "DOM manipulation"
+      - "Event handling and input"
+    subtitle: "User Interface Design"
+    description: "Players interact with multiple screens and controls. This demonstrates how frontend development creates visual interfaces, handles user input, and manages different game states through HTML, CSS, and JavaScript."
+
+  - title: "Programming Fundamentals"
+    image: "/snake/code.png"
+    link: "/snake/lesson/fundamentals"
+    alt: "Programming Fundamentals"
+    keyPoints:
+      - "Variables and constants"
+      - "Functions and organization"
+      - "Conditionals and loops"
+      - "Arrays and objects"
+    subtitle: "Core Programming Skills"
+    description: "Snake demonstrates essential programming concepts through game mechanics. Students learn how variables track game state, functions organize code, and data structures like arrays manage the snake's body segments."
+
+  - title: "Hacks"
+    image: "/snake/problem-solving.png"
+    link: "/snake/lesson/hacks"
+    alt: "Hacks"
+    keyPoints:
+      - "Learn more about snake through homework hacks"
+      - "Implement new features"
+      - "Debug issues"
+      - "Enhance gameplay"
+    description: "Snake requires sophisticated problem-solving techniques. Developers learn to implement continuous game loops, handle complex collision scenarios, and manage game state—core algorithmic thinking skills used across programming through the hacks."

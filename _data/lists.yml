@@ -1,0 +1,205 @@
+Title: "Lists"
+Description: "Lists are one of the most essential data structures in programming. They allow developers to store, organize, and manipulate groups of values efficiently. This section introduces list concepts, operations, and use cases."
+topButtons:
+  - text: "JavaScript Lists Homework"
+    url: "/csp/big-idea-three/lists/javascript/hw/p3/syntaxterrors"
+    color: "bg-yellow-600 hover:bg-yellow-700 text-white"
+  - text: "Python Lists Homework"
+    url: "/csp/big-idea-three/lists/python/hw/p3/syntaxterrors"
+    color: "bg-blue-600 hover:bg-blue-700 text-white"
+Topics:
+  - title: "Creating Lists"
+    keyPoints:
+      - "Define lists with <span class='bg-neutral-700 px-1 rounded text-blue-500'>[]</span>"
+      - "Store multiple values"
+      - "Mix data types"
+    jsCode: |
+      let colors = ["red", "green", "blue"];
+      console.log(colors);
+    jsExplanation: |
+      In JavaScript, you create a list (array) using <span class='bg-neutral-700 px-1 rounded text-red-500'>[]</span>.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>let colors = ["red", "green", "blue"];</span> creates an array called <span class='font-bold'>colors</span> with three items.</li>
+        <li>Arrays can hold numbers, strings, or other arrays.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>console.log(colors);</span> prints the array to the console.</li>
+      </ul>
+      Arrays are a flexible way to store groups of values in JavaScript.
+    pyCode: |
+      colors = ["red", "green", "blue"]
+      print(colors)
+    pyExplanation: |
+      In Python, you create a list using <span class='bg-neutral-700 px-1 rounded text-blue-500'>[]</span>.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>colors = ["red", "green", "blue"]</span> creates a list called <span class='font-bold'>colors</span> with three items.</li>
+        <li>Lists can hold numbers, strings, or other lists.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>print(colors)</span> displays the list.</li>
+      </ul>
+      Lists are a basic way to store and organize data in Python.
+
+  - title: "Accessing Elements"
+    keyPoints:
+      - "Use indexes to access items"
+      - "Start counting at <span class='bg-neutral-700 px-1 rounded text-blue-500'>0</span>"
+      - "Access first, last, or middle elements"
+    jsCode: |
+      let animals = ["cat", "dog", "bird"];
+      console.log(animals[1]); // dog
+      console.log(animals[animals.length - 1]); // bird
+    jsExplanation: |
+      JavaScript arrays are <span class='font-bold'>zero-indexed</span>, meaning the first item is at position <span class='bg-neutral-700 px-1 rounded text-red-500'>0</span>.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>animals[1]</span> gets the second item ("dog").</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>animals[animals.length - 1]</span> gets the last item ("bird").</li>
+      </ul>
+      Use indexes to access any element in the array.
+    pyCode: |
+      animals = ["cat", "dog", "bird"]
+      print(animals[1])  # dog
+      print(animals[-1]) # bird
+    pyExplanation: |
+      Python lists are <span class='font-bold'>zero-indexed</span>, so the first item is at position <span class='bg-neutral-700 px-1 rounded text-blue-500'>0</span>.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>animals[1]</span> gets the second item ("dog").</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>animals[-1]</span> gets the last item ("bird").</li>
+      </ul>
+      Use indexes to access any element in the list.
+
+  - title: "Modifying Lists"
+    keyPoints:
+      - "Change values by index"
+      - "Update existing items"
+      - "Keep lists dynamic"
+    jsCode: |
+      let scores = [10, 20, 30];
+      scores[0] = 15;
+      scores[2] = scores[0] + scores[1];
+      console.log(scores); // [15, 20, 35]
+    jsExplanation: |
+      You can change an array item by assigning a new value to its index.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>scores[0] = 15;</span> replaces 10 with 15.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>scores[2] = scores[0] + scores[1];</span> updates the last item to the sum of the first two.</li>
+      </ul>
+      Arrays are dynamic and can be changed anytime.
+    pyCode: |
+      scores = [10, 20, 30]
+      scores[0] = 15
+      scores[2] = scores[0] + scores[1]
+      print(scores)  # [15, 20, 35]
+    pyExplanation: |
+      You can change a list item by assigning a new value to its index.<br>
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>scores[0] = 15</span> replaces 10 with 15.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>scores[2] = scores[0] + scores[1]</span> updates the last item to the sum of the first two.</li>
+      </ul>
+      Lists are dynamic and can be changed anytime.
+
+  - title: "Adding Elements"
+    keyPoints:
+      - "Use <span class='bg-neutral-700 px-1 rounded text-blue-500'>append</span>/<span class='bg-neutral-700 px-1 rounded text-red-500'>push</span> to add to the end"
+      - "Insert at specific positions"
+      - "Grow lists dynamically"
+    jsCode: |
+      let cities = ["Paris", "London"];
+      cities.push("Tokyo");
+      cities.splice(1, 0, "Berlin");
+      console.log(cities); // ["Paris", "Berlin", "London", "Tokyo"]
+    jsExplanation: |
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>push()</span> adds an item to the end of the array.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>splice()</span> can insert items at any position.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>console.log(cities);</span> prints the final array.</li>
+      </ul>
+      Arrays can grow as you add more items.
+    pyCode: |
+      cities = ["Paris", "London"]
+      cities.append("Tokyo")
+      cities.insert(1, "Berlin")
+      print(cities)  # ["Paris", "Berlin", "London", "Tokyo"]
+    pyExplanation: |
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>append()</span> adds an item to the end of the list.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>insert()</span> can add items at any position.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>print(cities)</span> prints the final list.</li>
+      </ul>
+      Lists can grow as you add more items.
+
+  - title: "Removing Elements"
+    keyPoints:
+      - "Remove by value"
+      - "Remove by index"
+      - "Pop the last element"
+    jsCode: |
+      let colors = ["red", "green", "blue", "yellow"];
+      colors.splice(2, 1); // Remove item at index 2 ("blue")
+      colors.pop(); // Remove last item ("yellow")
+      console.log(colors); // ["red", "green"]
+    jsExplanation: |
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>splice()</span> removes items by index.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>pop()</span> removes the last item.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>console.log(colors);</span> prints the updated array.</li>
+      </ul>
+      You can remove items from arrays by value or index.
+    pyCode: |
+      colors = ["red", "green", "blue", "yellow"]
+      colors.remove("blue")
+      colors.pop()
+      print(colors)  # ["red", "green"]
+    pyExplanation: |
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>remove()</span> removes an item by value.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>pop()</span> removes the last item.</li>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>print(colors)</span> prints the updated list.</li>
+      </ul>
+      You can remove items from lists by value or index.
+
+  - title: "Looping Through Lists"
+    keyPoints:
+      - "Use <span class='bg-neutral-700 px-1 rounded text-blue-500'>for</span> loops to iterate"
+      - "Process each element"
+      - "Use <span class='bg-neutral-700 px-1 rounded text-red-500'>for...of</span> in JavaScript"
+    jsCode: |
+      let animals = ["cat", "dog", "bird"];
+      // Complete traversal
+      for (let animal of animals) {
+          console.log(animal);
+      }
+      // Partial traversal
+      for (let i = 0; i < 2; i++) {
+          console.log(animals[i]);
+      }
+    jsExplanation: |
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-red-500'>for...of</span> loops go through each item in the array.</li>
+        <li>Use a regular <span class='bg-neutral-700 px-1 rounded text-red-500'>for</span> loop for partial traversal.</li>
+      </ul>
+      Looping lets you process every element in an array.
+    pyCode: |
+      animals = ["cat", "dog", "bird"]
+      # Complete traversal
+      for animal in animals:
+          print(animal)
+      # Partial traversal
+      for i in range(0, 2):
+          print(animals[i])
+    pyExplanation: |
+      <ul>
+        <li><span class='bg-neutral-700 px-1 rounded text-blue-500'>for</span> loops go through each item in the list.</li>
+        <li>Use <span class='bg-neutral-700 px-1 rounded text-blue-500'>range()</span> for partial traversal.</li>
+      </ul>
+      Looping lets you process every element in a list.
+
+  - title: "Try It Yourself: Print the First Item"
+    keyPoints:
+      - "Practice accessing elements in a list or array"
+      - "Remember: Indexing starts at 0 in both Python and JavaScript"
+    jsExplanation: |
+      To print the first item in the array, use the correct index and the print statement for JavaScript. Make sure you access the first element and display it in the console.
+    jsExpectedOutput: "apple"
+    pyExplanation: |
+      To print the first item in the list, use the correct index and the print function in Python. Make sure you access the first element and display it.
+    pyExpectedOutput: "apple"
+    jsTryItDescription: "Print the first fruit in the list using console.log and array indexing. The expected output should be 'apple'."
+    pyTryItDescription: "Print the first fruit in the list using print and list indexing. The expected output should be 'apple'."
+

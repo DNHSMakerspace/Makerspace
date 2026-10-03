@@ -1,0 +1,42 @@
+cards:
+  - term: "What is the browser console?"
+    definition: "A built-in tool in browsers that lets you run JavaScript code, debug, and interact with web pages in real time."
+
+  - term: "How do you open the browser console?"
+    definition: "Press F12 or right-click and select 'Inspect', then go to the Console tab."
+
+  - term: "How do you play Rock Paper Scissors in the console?"
+    definition: "Type playRPS('rock'), playRPS('paper'), or playRPS('scissors') in the console and press Enter."
+
+  - term: "What does the playRPS function do?"
+    definition: "It lets you play a round of Rock Paper Scissors against the computer by passing your choice as an argument."
+
+  - term: "How can you customize the game buttons using the console?"
+    definition: "You can use commands like rock.setBorder('4px solid lime'), paper.rotate(15), or scissors.setWidth(150) in the console."
+
+  - term: "What is Object-Oriented Programming (OOP)?"
+    definition: "A programming paradigm that organizes code into objects with properties and methods, making code reusable and easier to manage."
+
+  - term: "How is OOP used in this lesson?"
+    definition: "Each game button (rock, paper, scissors) can be represented as an object with properties and methods for animation and customization."
+
+  - term: "What is a JavaScript class?"
+    definition: "A blueprint for creating objects with shared properties and methods."
+
+  - term: "How do you print a message in the console?"
+    definition: "Use console.log('Your message') in the console."
+
+  - term: "How do you check if your answer is correct in the lesson checkpoints?"
+    definition: "Type your answer in the input box and the script will give feedback if it's correct or not."
+
+  - term: "What is the purpose of the Checkpoint sections?"
+    definition: "To let you practice and test your understanding of console commands and programming concepts."
+
+  - term: "How do you change the background color of the page using the console?"
+    definition: "Type document.body.style.background = '#222' in the console."
+
+  - term: "What is the difference between a function and a class in JavaScript?"
+    definition: "A function is a reusable block of code; a class is a template for creating objects with properties and methods."
+
+  - term: "How do you reset the game or variables in the console?"
+    definition: "Refresh the page or re-run the script to reset variables and state."

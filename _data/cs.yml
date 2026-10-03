@@ -1,0 +1,54 @@
+# course illustrations
+introduction_tools: &introduction_tools |
+    +-----------------+
+    | Laptop, OS      |
+    | Tool Setup      | 
+    +-----------------+
+       |
+       | VS Code, Markdown, Jupyter Notebook, JavaScript (.md, .html)
+       v
+    +-----------------+
+    | VS Code, Develop|
+    | Code Editor     | 
+    +-----------------+
+       |
+       | Write code, make, run localhost, test, debug
+       v
+    +-----------------+
+    | VS Code, Git    |
+    | Version Control |       | 
+    +-----------------+
+       |
+       | Commit local versions, comment, show changes, reset branch
+       v
+    +-----------------+
+    | VS Code, Project|
+    | GitHub Sync     |
+    +-----------------+
+       |
+       | Push changes to GitHub cloud Repository (repo
+       v
+    +-----------------+
+    | GitHub,  Collab |
+    | Shared Code     |
+    +-----------------+
+       |
+       | Tracking GitHub pages Actions, understanding Jekyll build files
+       v
+    +-----------------+
+    | GitHub Pages    | ->  Highlight languages, coding, and course skills, with Awesome Style
+    | Showcase Project| ->  Share project with the world
+    +-----------------+
+
+Onboarding: 
+  title: Setting Up Tools & Work Habits
+  description: By the end of this sprint (section), you will know how to use key tools like Github, Linux, and VSCode. You will also learn how to work in the class with unique topics like Agile Methodology and SDLC (Software Development Life Cycle).
+  illustration: *introduction_tools
+  mermaid_figure: |
+    flowchart TD
+      A[Laptop, OS<br>Tool Setup] --> B[VS Code, Markdown, Jupyter, JS]
+      B --> C[VS Code, Develop<br>Code Editor]
+      C --> D[VS Code, Git<br>Version Control]
+      D --> E[VS Code, Project<br>GitHub Sync]
+      E --> F[GitHub, Collab<br>Shared Code]
+      F --> G[GitHub Pages<br>Showcase Project]

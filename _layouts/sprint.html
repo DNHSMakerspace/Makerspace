@@ -1,0 +1,55 @@
+---
+layout: post
+---
+
+{% assign shared = site.data.cs %}
+{% assign course = site.data[page.course] %}
+{% assign units = page.units | split: ',' %}
+{% assign posts = null | compact %}
+{% assign posts = posts | concat: site.posts | concat: site.pages %}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="{{ '/assets/js/help-video.js' | relative_url }}"></script>
+
+<div class="timeline-page">
+{% include course-nav.html %}
+
+<div class="timeline-header">
+  <h1>Course Timeline</h1>
+</div>
+
+{% include announcement_chat.html %}
+
+<div class="timeline-container">
+  {% for unit in units %}
+    {% assign unitKey = "Sprint" | append: unit %}
+    {% assign unitData = course[unitKey] %}
+    {% assign courseUnit = course[unitKey] %}
+    {% assign start = unitData.start %}
+    {% assign end = unitData.end %}
+    {% assign helpUrl = unitData.help %}
+
+    {% if courseUnit.shared %}
+      {% assign unitData = shared[courseUnit.shared] %}
+    {% endif %}
+
+    {% include sprint-card.html %}
+  {% endfor %}
+</div>
+
+<!-- Modals for sprint page -->
+{% include sprint-modals.html %}
+
+<!-- Include calendar sync modals and functionality -->
+{% include calendar.html %}
+
+<!-- Embed course skill library as application/json (avoid problematic Liquid default with {} ) -->
+<script id="course-skill-lib-json" type="application/json">
+  {{ course | jsonify }}
+</script>
+
+<script src="{{site.baseurl}}/assets/js/projects/courses/courses.js"></script>
+</div>
+<!-- End .timeline-page -->

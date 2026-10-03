@@ -1,0 +1,95 @@
+---
+layout: opencs 
+---
+
+<article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    {%- if page.menu -%}
+      {% include {{page.menu}} html=content %}
+    {%- endif -%}
+    {% if page.categories.size > 0 %}
+      Categories:
+      {% for category in  page.categories  %}
+        {%- assign prefix = category | slice: 0 -%}
+        <a class="category-tags-link" href="{{site.baseurl}}/search/#{{category|slugize}}">{{category}}</a>
+        {% unless forloop.last %}&nbsp;{% endunless %}
+      {% endfor %}
+    {% endif %}
+    {% if page.breadcrumb %}
+      <!-- Locate Parent Path -->
+      {% assign parts = page.permalink | split: '/' %}
+      {% assign num_parts = parts.size | minus: 1 %}
+      <!-- Remove last part of path -->
+      {% assign parent_parts = '' %}
+      {% for i in (0..num_parts) %}
+        {% unless forloop.last %}
+          {% if parent_parts == '' %}
+            {% assign parent_parts = parts[i] %}
+          {% else %}
+            {% assign parent_parts = parent_parts | append: '/' | append: parts[i] %}
+          {% endif %}
+        {% endunless %}
+      {% endfor %}
+      Breadcrumb:
+      <a class="category-tags-link" href="{{ site.baseurl }}/{{ parent_parts }}">/{{ parent_parts }}</a>
+      {% assign data = site.data[page.data] %}
+      {% for topic in data.Topics %}
+        {% if page.permalink == topic.link %}
+          &raquo; <span class="font-bold">{{ topic.title }}</span>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    <p class="post-meta post-meta-title">
+      {%- assign date_format = site.minima.date_format | default: "%b %-d, %Y" -%}
+      <time class="dt-published" datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">
+        {{ page.date | date: date_format }}
+      </time>
+      {%- if page.modified_date -%}
+        ~ 
+        {%- assign mdate = page.modified_date | date_to_xmlschema -%}
+        <time class="dt-modified" datetime="{{ mdate }}" itemprop="dateModified">
+          {{ mdate | date: date_format }}
+        </time>
+      {%- endif -%}
+      {%- if page.author -%}
+        • {% for author in page.author %}
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">{{ author }}</span></span>
+            {%- if forloop.last == false %}, {% endif -%}
+        {% endfor %}
+      {%- endif %}
+      {%- if page.show_reading_time != false -%}
+       • {% include reading_time.html -%}
+      {%- endif %}
+    </p>
+    <br>
+    <h3>{{ page.title | escape }}</h3>
+    {%- if page.description -%}
+      {%- if site.html_escape.description -%}
+        <p class="page-description">{{ page.description | escape }}</p>
+      {%- else -%}
+        <p class="page-description">{{ page.description }}</p>
+      {%- endif -%}
+    {%- endif -%}
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    {%- if page.toc -%}
+      {% include toc.html html=content %}
+    {%- endif -%}
+
+    {%- if page.submenu -%}
+      {%- include submenu.html -%}
+    {%- endif -%}
+
+    {{ content }}
+  </div>
+  {%- if page.comments -%}
+    {%- include utterances.html -%}
+  {%- endif -%}
+  {%- if site.disqus.shortname -%}
+    {%- include disqus_comments.html -%}
+  {%- endif -%}
+  <a class="u-url" href="{{ page.url | relative_url }}" hidden></a>
+</article>

@@ -1,0 +1,62 @@
+// disabled state
+@mixin disabled {
+    color: rgba(118, 118, 128, 0.48);
+    background-color: rgba(120, 120, 128, 0.12);
+    cursor: not-allowed;
+    // pointer-events: none;
+    opacity: 0.5;
+
+    transition: all 0.5s;
+
+    // Remove hover and active effects
+    &:hover,
+    &:active {
+        background-color: inherit;
+    }
+}
+
+// Disabled class
+.disabled {
+    @include disabled;
+}
+
+// Native disabled buttons should keep the same visual state as disabled button classes.
+.ocs__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+
+    &:hover,
+    &:active {
+        opacity: 0.5;
+        transform: none;
+    }
+}
+
+// If you want to make buttons disabled
+.primary.disabled,
+.secondary.disabled,
+.tertiary.disabled {
+    @include disabled;
+}
+
+// ########################################################
+// ########################################################
+// ########################################################
+
+// hover and active states
+@mixin hover-darken($color, $amount: 10%) {
+    transition: all 0.5s;
+
+    &:hover {
+        background-color: darken($color, $amount);
+    }
+}
+
+@mixin active-darken($color, $amount: 20%) {
+    transition: all 0.5s;
+
+    &:active {
+        background-color: darken($color, $amount);
+    }
+}

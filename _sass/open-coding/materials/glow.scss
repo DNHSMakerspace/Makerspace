@@ -1,0 +1,53 @@
+.glow {
+    cursor: pointer;
+    position: relative;
+    z-index: 0;
+
+    &:before,
+    &:after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        border-radius: inherit;
+        z-index: -1;
+    }
+
+    &:before {
+        background: linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--pref-accent-color, $lightBlue1) 65%, #ff4d6d),
+        var(--pref-accent-color, $lightBlue1),
+        color-mix(in srgb, var(--pref-accent-color, $lightBlue1) 65%, #7c3aed)
+        );
+    }
+
+    &:hover:before {
+        opacity: 1;
+    }
+
+    &:after {
+        background: var(--panel, $gray6);
+    }
+}
+
+.glowOnHover {
+  @extend .glow;
+  color: var(--pref-text-color, $white1);
+  background: var(--panel, $gray6);
+}
+
+// animation key frames
+@keyframes glowing {
+
+    0%,
+    100% {
+        background-position: 0 0;
+    }
+
+    50% {
+        background-position: 400% 0;
+    }
+}

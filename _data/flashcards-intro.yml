@@ -1,0 +1,126 @@
+cards:
+  - term: "What is a Jupyter Notebook?"
+    definition: "An open-source interactive web application that allows you to write and execute code in cells, visualize data, and document your process using Markdown."
+
+  - term: "How do you launch a Jupyter Notebook?"
+    definition: "You run `jupyter notebook` in your terminal (in the right virtual environment), which opens the notebook dashboard in your browser."
+
+  - term: "What is a notebook cell?"
+    definition: "A single editable section in a Jupyter notebook that can contain either code (Python, etc.) or Markdown-formatted text."
+
+  - term: "What is the difference between a code cell and a Markdown cell?"
+    definition: "A code cell runs executable code, while a Markdown cell formats text, headings, lists, and math notation for documentation."
+
+  - term: "How do you execute a cell in a Jupyter notebook?"
+    definition: "Click inside the cell and press Shift + Enter or click the 'Run' button."
+
+  - term: "What command is used to install Jupyter Notebook?"
+    definition: "Run `pip install notebook` inside your Python environment to install it."
+
+  - term: "How do you start a new notebook for a specific environment?"
+    definition: "Activate the environment first using `conda activate <env>` or `source <env>/bin/activate`, then run `jupyter notebook`."
+
+  - term: "What kernel does a notebook use?"
+    definition: "The kernel is the computational engine that runs the code in your notebook (e.g., IPython kernel for Python)."
+
+  - term: "What is a kernel restart?"
+    definition: "Restarting the kernel clears all memory and variables, allowing a fresh run of your notebook code."
+
+  - term: "How do you add a Markdown cell?"
+    definition: "Click on the cell, use the dropdown menu to select 'Markdown', and write your formatted text."
+
+  - term: "What is `%matplotlib inline` used for?"
+    definition: "It ensures that plots from libraries like Matplotlib render directly inside the notebook output."
+
+  - term: "What does `%time` do in a notebook cell?"
+    definition: "It measures and prints the execution time of a single Python statement."
+
+  - term: "What does `%run script.py` do?"
+    definition: "It runs a separate Python script inside your notebook as if it were part of the current kernel session."
+
+  - term: "What does `!` mean in a Jupyter notebook cell?"
+    definition: "It allows you to run shell commands (e.g., `!ls`, `!pip install`, `!pwd`) from within a cell."
+
+  - term: "What is the use of `?` and `??` in notebooks?"
+    definition: "`?` gives a short docstring about a function or object; `??` provides the source code if available."
+
+  - term: "What is `%load` magic in Jupyter?"
+    definition: "It loads the contents of an external Python file into a cell, ready to run or edit."
+
+  - term: "How do you save a Jupyter Notebook?"
+    definition: "Click 'File' > 'Save and Checkpoint', or use the keyboard shortcut Cmd/Ctrl + S."
+
+  - term: "How do you convert a Jupyter Notebook to a .py file?"
+    definition: "Use `jupyter nbconvert --to script notebook.ipynb` from the terminal."
+
+  - term: "What file format are Jupyter notebooks stored in?"
+    definition: "They are saved as `.ipynb` files — JSON-based files containing code, output, and metadata."
+
+  - term: "How can you export a notebook to PDF?"
+    definition: "Run `jupyter nbconvert --to pdf notebook.ipynb`, assuming LaTeX is installed."
+
+  - term: "How do you install a missing Python package inside a notebook?"
+    definition: "Run `!pip install <package>` or `%pip install <package>` in a code cell."
+
+  - term: "What is `%pip install` vs `!pip install`?"
+    definition: "`%pip` is a Jupyter magic command that ensures installation into the current kernel environment; `!pip` runs as a shell command and may not install in the right environment."
+
+  - term: "How do you check the current working directory in a notebook?"
+    definition: "Use `!pwd` (Linux/Mac) or `!cd` (Windows), or Python's `import os; os.getcwd()`."
+
+  - term: "How do you import another notebook?"
+    definition: "Use `import nbimporter` or manually copy relevant code blocks — native imports are not supported without external libraries."
+
+  - term: "How do you hide output in a Jupyter notebook?"
+    definition: "You can click the left sidebar of a cell to collapse output, or use extensions like `hide_input_all`."
+
+  - term: "What is JupyterLab?"
+    definition: "A next-generation interface for Project Jupyter offering a more powerful IDE-like experience for notebooks and file management."
+
+  - term: "What is a virtual environment in Python?"
+    definition: "A self-contained directory that contains a Python interpreter and libraries for a specific project, often used with Jupyter."
+
+  - term: "How do you link a virtual environment to Jupyter?"
+    definition: "Run `python -m ipykernel install --user --name=myenv` to register it as a kernel."
+
+  - term: "What does `%who` magic do?"
+    definition: "It lists all defined variables in the current notebook session."
+
+  - term: "What does `%reset` do in a notebook?"
+    definition: "It clears all user-defined variables and resets the workspace."
+
+  - term: "How do you interrupt code execution in a notebook?"
+    definition: "Click the stop icon or go to 'Kernel' > 'Interrupt'."
+
+  - term: "What does the 'Trusted' label mean in Jupyter?"
+    definition: "It indicates that the notebook is safe to execute — untrusted notebooks may not render HTML/JS outputs."
+
+  - term: "What are notebook extensions?"
+    definition: "Plugins that add features to Jupyter Notebooks, such as collapsible headings, code folding, and variable inspection."
+
+  - term: "What is nbextensions?"
+    definition: "A configurable plugin system that adds useful enhancements to standard Jupyter notebooks."
+
+  - term: "What’s the shortcut to insert a new cell below?"
+    definition: "Press 'B' in command mode (press Esc first to enter command mode)."
+
+  - term: "What’s the shortcut to delete a cell?"
+    definition: "Press 'D' twice in command mode (DD)."
+
+  - term: "How do you change cell type to Markdown with a shortcut?"
+    definition: "Press 'M' in command mode."
+
+  - term: "How do you comment multiple lines in a code cell?"
+    definition: "Highlight the lines and press Ctrl + / (or Cmd + / on Mac)."
+
+  - term: "Can you use LaTeX in Jupyter Notebooks?"
+    definition: "Yes, Markdown cells support LaTeX for math formatting using `$$` or single `$` syntax."
+
+  - term: "What is `%debug` used for?"
+    definition: "It launches an interactive debugger if an exception is raised in the cell."
+
+  - term: "How do you view previous output in a notebook?"
+    definition: "Use `_` for the last output, `__` for the second last, and `Out[n]` for a specific output number."
+
+  - term: "How do you share a notebook with someone?"
+    definition: "Share the `.ipynb` file directly, convert to HTML/PDF, or host it via GitHub, nbviewer, or Binder."
