@@ -1,7 +1,7 @@
 ---
 layout: makerspace
 title: Sign Out
-permalink: /signout
+permalink: /signout/
 ---
 
 <header class="makerspace-panel page-header-block form-page narrow text-center">
@@ -10,7 +10,7 @@ permalink: /signout
   <p class="lead">Thanks for visiting the Del Norte Makerspace. Come back anytime to print something new.</p>
   <div class="page-header-actions actions-center">
     <a class="makerspace-button" href="{{ '/' | relative_url }}">Back home</a>
-    <a class="makerspace-link-button" href="{{ '/signin' | relative_url }}">Sign in again</a>
+    <a class="makerspace-link-button" href="{{ '/signin/' | relative_url }}">Sign in again</a>
   </div>
 </header>
 

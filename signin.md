@@ -1,7 +1,7 @@
 ---
 layout: makerspace
 title: Sign In
-permalink: /signin
+permalink: /signin/
 ---
 
 <div class="makerspace-panel form-page narrow form-shell">
@@ -22,7 +22,7 @@ permalink: /signin
     <div id="signinAlert" class="alert" aria-live="polite"></div>
     <div class="form-actions">
       <button type="submit" class="makerspace-action-button">Sign In</button>
-      <a class="makerspace-link-button" href="{{ '/signup' | relative_url }}">Create account</a>
+      <a class="makerspace-link-button" href="{{ '/signup/' | relative_url }}">Create account</a>
     </div>
   </form>
 </div>

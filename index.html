@@ -14,23 +14,8 @@ permalink: /
     </p>
 
     <div class="hero-actions">
-      <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Join the club</a>
-      <a class="makerspace-link-button" href="#request">Submit a print request</a>
-    </div>
-
-    <div class="hero-stats">
-      <div class="stat-pill">
-        <strong>240+</strong>
-        <span>Prints completed</span>
-      </div>
-      <div class="stat-pill">
-        <strong>18</strong>
-        <span>Active student makers</span>
-      </div>
-      <div class="stat-pill">
-        <strong>4.8/5</strong>
-        <span>Average review rating</span>
-      </div>
+      <a class="makerspace-button" href="#request">Submit a print request</a>
+      <a class="makerspace-link-button" href="{{ '/signin/' | relative_url }}">Sign in</a>
     </div>
   </div>
 
@@ -49,8 +34,8 @@ permalink: /
           <div class="cube-shape"></div>
         </div>
         <div class="model">
-          <span>Progress</span>
-          <span>82%</span>
+          <span>Status</span>
+          <span>Ready</span>
         </div>
       </div>
     </div>
@@ -76,7 +61,7 @@ permalink: /
     <article class="makerspace-panel info-card">
       <div class="card-icon" aria-hidden="true">⚙</div>
       <span class="eyebrow">Fast turnaround</span>
-      <h3>Club printing</h3>
+      <h3>School printing</h3>
       <p>We manage requests for classroom tools, robotics accessories, demonstration models, and event props.</p>
     </article>
 
@@ -94,7 +79,7 @@ permalink: /
     <div>
       <span class="eyebrow">Get started</span>
       <h2>Print request form</h2>
-      <p id="welcomeUser">Create an account to start printing</p>
+      <p id="welcomeUser">Sign in to start printing</p>
     </div>
   </div>
 
@@ -127,11 +112,11 @@ permalink: /
           <textarea id="requestDescription" name="description" placeholder="Describe the purpose, size, and any special requirements for your print." required></textarea>
         </div>
         <label class="field field-full">
-          Upload model file
-          <input type="file" name="file" accept=".stl,.3mf">
+          Model file (STL or 3MF only)
+          <input type="file" name="file" accept=".stl,.3mf" required>
         </label>
       </div>
-      <div class="inline-note">Students must be signed in before submitting a print request.</div>
+      <div class="inline-note">Sign in with your school email before submitting. Files must be .stl or .3mf.</div>
       <div id="requestAlert" class="alert" aria-live="polite"></div>
       <div class="form-actions">
         <button type="submit" class="makerspace-action-button">Submit print request</button>
@@ -139,8 +124,12 @@ permalink: /
     </form>
 
     <div>
-      <h3 class="request-subhead">Your print requests</h3>
+      <h3 class="request-subhead">Your active requests</h3>
+      <div id="requestsEmpty" class="makerspace-empty" hidden></div>
       <div id="requestList" class="request-list"></div>
+
+      <h3 class="request-subhead">Print history</h3>
+      <div id="printHistory" class="request-list"></div>
     </div>
   </div>
 </section>
@@ -150,7 +139,7 @@ permalink: /
     <div>
       <span class="eyebrow">Staff tools</span>
       <h2>Admin review</h2>
-      <p>Approve, reject, and track student requests.</p>
+      <p>Approve, reject, complete, and chat about student requests.</p>
     </div>
   </div>
 
@@ -163,11 +152,11 @@ permalink: /
   <div class="cta-panel">
     <div>
       <span class="eyebrow">Next step</span>
-      <h3>Ready to make something?</h3>
+      <h3>Ready to print something?</h3>
     </div>
     <div class="cta-actions">
-      <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Create account</a>
-      <a class="makerspace-link-button dark" href="{{ '/about' | relative_url }}">Learn more</a>
+      <a class="makerspace-button" href="#request">Submit a request</a>
+      <a class="makerspace-link-button dark" href="{{ '/about/' | relative_url }}">Learn more</a>
     </div>
   </div>
 </section>

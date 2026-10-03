@@ -2,14 +2,18 @@
 layout: null
 ---
 <!DOCTYPE html>
-<html lang="{{ page.lang | default: site.lang | default: 'en' }}">
+<html lang="{{ page.lang | default: site.lang | default: 'en' }}" data-makerspace-base="{{ site.baseurl }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ page.title | default: 'Makerspace' }} · {{ site.title | default: 'Del Norte Makerspace' }}</title>
   {% if site.description %}<meta name="description" content="{{ site.description }}">{% endif %}
   <link rel="icon" href="{{ '/favicon.ico' | relative_url }}">
-  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms3">
+  <script>
+    // Injected so JS redirects always respect site.baseurl (never drops a path prefix).
+    window.MAKERSPACE_BASE = {{ site.baseurl | jsonify }};
+  </script>
 </head>
 <body class="makerspace-body">
   {% include makerspace-topbar.html %}
@@ -30,14 +34,14 @@ layout: null
         </div>
         <nav class="footer-nav" aria-label="Footer">
           <a href="{{ '/' | relative_url }}">Home</a>
-          <a href="{{ '/about' | relative_url }}">About</a>
-          <a href="{{ '/requests' | relative_url }}">Requests</a>
-          <a href="{{ '/signin' | relative_url }}">Sign In</a>
+          <a href="{{ '/about/' | relative_url }}">About</a>
+          <a href="{{ '/requests/' | relative_url }}">Requests</a>
+          <a href="{{ '/signin/' | relative_url }}">Sign In</a>
         </nav>
       </div>
     </footer>
   </div>
 
-  <script src="{{ '/assets/js/makerspace.js' | relative_url }}"></script>
+  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms3"></script>
 </body>
 </html>

@@ -1,6 +1,49 @@
 (function () {
   const STORAGE_KEY = 'makerspace-demo-state';
   const ADMIN_EMAIL = 'admin@stu.powayusd.com';
+  const ACTIVE_STATUSES = ['pending', 'approved'];
+  const HISTORY_STATUSES = ['rejected', 'completed'];
+
+  // Resolve site baseurl so redirects never drop a path prefix (e.g. /Makerspace).
+  function msBaseUrl() {
+    if (typeof window !== 'undefined' && typeof window.MAKERSPACE_BASE === 'string') {
+      return window.MAKERSPACE_BASE.replace(/\/$/, '');
+    }
+    const fromDom = document.documentElement.getAttribute('data-makerspace-base');
+    if (typeof fromDom === 'string') return fromDom.replace(/\/$/, '');
+    const scripts = document.querySelectorAll('script[src*="makerspace.js"]');
+    for (let i = 0; i < scripts.length; i += 1) {
+      const src = scripts[i].getAttribute('src') || '';
+      const marker = '/assets/js/makerspace.js';
+      const idx = src.indexOf(marker);
+      if (idx > 0) return src.slice(0, idx).replace(/\/$/, '');
+      if (idx === 0) return '';
+    }
+    return '';
+  }
+
+  // Build a site-absolute path with optional baseurl + pretty trailing slash.
+  function msUrl(path) {
+    const base = msBaseUrl();
+    let raw = path || '/';
+    if (!raw.startsWith('/')) raw = '/' + raw;
+    let hash = '';
+    const hashIdx = raw.indexOf('#');
+    if (hashIdx >= 0) {
+      hash = raw.slice(hashIdx);
+      raw = raw.slice(0, hashIdx);
+    }
+    let clean = raw.split('?')[0];
+    if (clean.length > 1 && !clean.endsWith('/')) clean += '/';
+    if (clean !== '/' && base) {
+      // Avoid doubling the base if a caller already included it.
+      if (clean === base + '/' || clean.startsWith(base + '/')) {
+        return clean + hash;
+      }
+    }
+    if (clean === '/') return (base || '') + '/' + hash;
+    return base + clean + hash;
+  }
 
   function defaultState() {
     return {
@@ -53,12 +96,6 @@
     return state.session ? state.users.find(user => user.email === state.session.email) || null : null;
   }
 
-  function setSession(user) {
-    const state = readState();
-    state.session = { email: user.email, role: user.role, name: user.name };
-    writeState(state);
-  }
-
   function clearSession() {
     const state = readState();
     state.session = null;
@@ -72,48 +109,88 @@
     el.className = `alert show ${type}`;
   }
 
-  function buildRequestMarkup(item) {
-    const statusClass = item.status ? item.status.toLowerCase() : 'pending';
-    return `
-      <div class="request-item">
-        <div class="request-item-header">
-          <h3>${item.projectName || 'Unnamed request'}</h3>
-          <span class="makerspace-badge ${statusClass}">${item.status || 'Pending'}</span>
-        </div>
-        <div class="request-meta">
-          <span>By: ${item.name}</span>
-          <span>Material: ${item.material}</span>
-          <span>Print size: ${item.dimensions}</span>
-        </div>
-        <p>${item.description || 'No description provided.'}</p>
-        <div class="request-meta">
-          <span>Upload: ${item.fileName || 'No file uploaded'}</span>
-          <span>Needed by: ${item.deadline || 'Flexible'}</span>
-        </div>
-        <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-          <button class="makerspace-link-button" data-chat-toggle data-request-id="${item.id}">Open Chat</button>
-        </div>
-        <div class="chat-area" id="chat-${item.id}" hidden></div>
-      </div>
-    `;
+  function normalizeStatus(status) {
+    return (status || 'Pending').toLowerCase();
   }
 
-  function renderRequests() {
-    const container = document.getElementById('requestList');
-    if (!container) return;
+  function isActiveStatus(status) {
+    return ACTIVE_STATUSES.includes(normalizeStatus(status));
+  }
 
+  function isHistoryStatus(status) {
+    return HISTORY_STATUSES.includes(normalizeStatus(status));
+  }
+
+  function canViewRequest(item, user) {
+    if (!user || !item) return false;
+    if (user.role === 'admin') return true;
+    return item.email === user.email;
+  }
+
+  function findChatByRequest(requestId) {
     const state = readState();
-    const current = currentUser();
-    const visibleRequests = current && current.role === 'admin'
-      ? state.requests
-      : state.requests.filter(item => item.email === current?.email || item.name === current?.name);
+    return (state.chats || []).find(c => c.requestId === requestId) || null;
+  }
 
-    if (!visibleRequests.length) {
-      container.innerHTML = '<div class="makerspace-empty">No print requests yet. Submit your first design for review.</div>';
-      return;
+  function ensureChatForRequest(request, user) {
+    const state = readState();
+    state.chats = state.chats || [];
+    let chat = state.chats.find(c => c.requestId === request.id);
+    if (!chat) {
+      chat = {
+        id: `chat-${request.id}`,
+        requestId: request.id,
+        participants: [request.email, ADMIN_EMAIL].filter(Boolean),
+        messages: [
+          {
+            sender: user.name,
+            senderEmail: user.email,
+            text: 'Request created. Waiting for admin review.',
+            ts: Date.now()
+          }
+        ]
+      };
+      state.chats.unshift(chat);
+      writeState(state);
     }
+    return chat;
+  }
 
-    container.innerHTML = visibleRequests.map(buildRequestMarkup).join('');
+  function escapeHtml(str) {
+    return (str || '').replace(/[&<>\"]/g, function (s) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s];
+    });
+  }
+
+  function buildRequestMarkup(item, options) {
+    const opts = options || {};
+    const status = item.status || 'Pending';
+    const statusClass = status.toLowerCase();
+    const chatLabel = opts.history ? 'Message admin' : 'Chat with admin';
+    const scope = opts.scope || 'user';
+    return `
+      <article class="request-item${opts.history ? ' is-history' : ''}" data-request-card data-request-id="${item.id}" tabindex="0" role="button" aria-label="Open admin chat for ${escapeHtml(item.projectName || 'print request')}">
+        <div class="request-item-header">
+          <h3>${escapeHtml(item.projectName || 'Unnamed request')}</h3>
+          <span class="makerspace-badge ${statusClass}">${escapeHtml(status)}</span>
+        </div>
+        <div class="request-meta">
+          <span>By: ${escapeHtml(item.name || '')}</span>
+          <span>Material: ${escapeHtml(item.material || '')}</span>
+          <span>Print size: ${escapeHtml(item.dimensions || '')}</span>
+        </div>
+        <p>${escapeHtml(item.description || 'No description provided.')}</p>
+        <div class="request-meta">
+          <span>Upload: ${escapeHtml(item.fileName || 'No file uploaded')}</span>
+          <span>Needed by: ${escapeHtml(item.deadline || 'Flexible')}</span>
+        </div>
+        <div class="request-actions">
+          <button type="button" class="makerspace-link-button request-chat-btn" data-chat-toggle data-request-id="${item.id}">${chatLabel}</button>
+          <span class="request-hint">Click the request to open chat</span>
+        </div>
+        <div class="chat-area" data-chat-area="${item.id}" data-chat-scope="${scope}" hidden></div>
+      </article>
+    `;
   }
 
   function renderAdminRequests() {
@@ -121,34 +198,87 @@
     if (!container) return;
 
     const state = readState();
-    if (!state.requests.length) {
-      container.innerHTML = '<div class="makerspace-empty">There are no pending print jobs right now.</div>';
+    // Admin review queue: pending + approved (history lives in print history)
+    const pendingish = state.requests.filter(item => {
+      const status = normalizeStatus(item.status);
+      return status === 'pending' || status === 'approved';
+    });
+
+    if (!pendingish.length) {
+      container.innerHTML = '<div class="makerspace-empty">There are no open print jobs right now.</div>';
       return;
     }
 
-    container.innerHTML = state.requests.map((item) => `
-      <div class="admin-item">
-        <div class="admin-item-header">
-          <h3>${item.projectName || 'Unnamed request'}</h3>
-          <span class="makerspace-badge ${item.status ? item.status.toLowerCase() : 'pending'}">${item.status || 'Pending'}</span>
-        </div>
-        <div class="admin-meta">
-          <span>${item.name}</span>
-          <span>${item.email}</span>
-          <span>${item.material}</span>
-          <span>${item.dimensions}</span>
-        </div>
-        <p>${item.description || 'No description provided.'}</p>
-        <div class="admin-actions">
-          <button class="approve" data-action="approve" data-request-id="${item.id}">Approve</button>
-          <button class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>
-        </div>
-        <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-          <button class="makerspace-link-button" data-chat-toggle data-request-id="${item.id}">Open Chat</button>
-        </div>
-        <div class="chat-area" id="chat-${item.id}" hidden></div>
-      </div>
-    `).join('');
+    container.innerHTML = pendingish.map((item) => {
+      const status = item.status || 'Pending';
+      const statusClass = status.toLowerCase();
+      const canComplete = normalizeStatus(status) === 'approved';
+      return `
+        <article class="admin-item" data-request-card data-request-id="${item.id}">
+          <div class="admin-item-header">
+            <h3>${escapeHtml(item.projectName || 'Unnamed request')}</h3>
+            <span class="makerspace-badge ${statusClass}">${escapeHtml(status)}</span>
+          </div>
+          <div class="admin-meta">
+            <span>${escapeHtml(item.name || '')}</span>
+            <span>${escapeHtml(item.email || '')}</span>
+            <span>${escapeHtml(item.material || '')}</span>
+            <span>${escapeHtml(item.dimensions || '')}</span>
+          </div>
+          <p>${escapeHtml(item.description || 'No description provided.')}</p>
+          <div class="admin-actions">
+            <button type="button" class="approve" data-action="approve" data-request-id="${item.id}">Approve</button>
+            <button type="button" class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>
+            ${canComplete ? `<button type="button" class="complete" data-action="complete" data-request-id="${item.id}">Mark completed</button>` : ''}
+          </div>
+          <div class="request-actions">
+            <button type="button" class="makerspace-link-button request-chat-btn" data-chat-toggle data-request-id="${item.id}">Chat with student</button>
+            <span class="request-hint">Click the request to open chat</span>
+          </div>
+          <div class="chat-area" data-chat-area="${item.id}" data-chat-scope="admin" hidden></div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function renderRequestLists() {
+    const listEl = document.getElementById('requestList');
+    if (!listEl) return;
+
+    const historyEl = document.getElementById('printHistory');
+    const emptyEl = document.getElementById('requestsEmpty');
+    const state = readState();
+    const user = currentUser();
+
+    if (!user) {
+      listEl.innerHTML = '';
+      if (historyEl) historyEl.innerHTML = '';
+      if (emptyEl) {
+        emptyEl.hidden = false;
+        emptyEl.textContent = 'Sign in with your school email to view and submit print requests.';
+      }
+      return;
+    }
+
+    if (emptyEl) {
+      emptyEl.hidden = true;
+      emptyEl.textContent = '';
+    }
+
+    // Regular users only see their own requests; admins see all.
+    const visible = state.requests.filter(item => canViewRequest(item, user));
+    const active = visible.filter(item => isActiveStatus(item.status));
+    const history = visible.filter(item => isHistoryStatus(item.status));
+
+    listEl.innerHTML = active.length
+      ? active.map(item => buildRequestMarkup(item, { history: false, scope: 'active' })).join('')
+      : '<div class="makerspace-empty">No active print requests.</div>';
+
+    if (historyEl) {
+      historyEl.innerHTML = history.length
+        ? history.map(item => buildRequestMarkup(item, { history: true, scope: 'history' })).join('')
+        : '<div class="makerspace-empty">No print history yet.</div>';
+    }
   }
 
   function updateSignedInState() {
@@ -171,7 +301,6 @@
     const adminLink = document.getElementById('adminLink');
     if (adminLink) adminLink.hidden = !(isSignedIn && user && user.role === 'admin');
 
-    // Signed-in pill lives inside the nav so it stacks cleanly on mobile
     const nav = document.querySelector('.makerspace-nav');
     if (nav) {
       let pill = document.getElementById('signedInInfo');
@@ -182,7 +311,7 @@
           pill.className = 'signedin-pill';
           nav.appendChild(pill);
         }
-        pill.innerHTML = `${user.name} <button class="makerspace-link-button" data-signout type="button">Sign out</button>`;
+        pill.innerHTML = `${escapeHtml(user.name)} <button class="makerspace-link-button" data-signout type="button">Sign out</button>`;
       } else if (pill) {
         pill.remove();
       }
@@ -267,7 +396,7 @@
       state.session = { email: user.email, role: user.role, name: user.name };
       writeState(state);
       showAlert('#signupAlert', 'Account created. Redirecting to your request dashboard...', 'success');
-      setTimeout(() => { window.location.href = '/requests'; }, 700);
+      setTimeout(() => { window.location.href = msUrl('/requests'); }, 700);
     });
   }
 
@@ -291,7 +420,6 @@
         return;
       }
 
-      // Require valid Poway student email (or admin) for signin
       if (!isValidStudentEmail(email) && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
         showAlert('#signinAlert', 'Use your Poway school email (ending in @stu.powayusd.com).', 'error');
         return;
@@ -308,10 +436,13 @@
       state.session = { email: user.email, role: user.role, name: user.name };
       writeState(state);
       showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
-      // Update UI immediately so user sees signed-in state before redirect
       updateSignedInState();
-      setTimeout(() => { window.location.href = '/requests'; }, 600);
+      setTimeout(() => { window.location.href = msUrl('/requests'); }, 600);
     });
+  }
+
+  function isValidModelFile(fileName) {
+    return /\.stl$/i.test(fileName) || /\.3mf$/i.test(fileName);
   }
 
   function attachRequestForm() {
@@ -331,12 +462,11 @@
       const file = data.get('file');
       const fileName = file && typeof file.name === 'string' ? file.name : '';
 
-      // Validate file presence and extension (STL or 3MF)
       if (!file || !fileName) {
         showAlert('#requestAlert', 'Please upload your 3D model file (STL or 3MF).', 'error');
         return;
       }
-      if (!/\.stl$/i.test(fileName) && !/\.3mf$/i.test(fileName)) {
+      if (!isValidModelFile(fileName)) {
         showAlert('#requestAlert', 'File must be an STL (.stl) or 3MF (.3mf).', 'error');
         return;
       }
@@ -351,24 +481,38 @@
         description: (data.get('description') || '').toString().trim(),
         deadline: (data.get('deadline') || '').toString().trim(),
         fileName,
-        status: 'Pending'
+        status: 'Pending',
+        createdAt: Date.now()
       };
 
       const state = readState();
       state.requests.unshift(request);
-      // create a chat thread associated with this request
       state.chats = state.chats || [];
       state.chats.unshift({
-        id: `chat-${Date.now()}`,
+        id: `chat-${request.id}`,
         requestId: request.id,
-        participants: [user.email],
-        messages: [ { sender: user.name, senderEmail: user.email, text: 'Request created. Waiting for admin review.', ts: Date.now() } ]
+        participants: [user.email, ADMIN_EMAIL],
+        messages: [
+          {
+            sender: user.name,
+            senderEmail: user.email,
+            text: 'Request created. Waiting for admin review.',
+            ts: Date.now()
+          }
+        ]
       });
       writeState(state);
       form.reset();
-      renderRequests();
+      renderRequestLists();
       renderAdminRequests();
-      showAlert('#requestAlert', 'Your request has been submitted for review.', 'success');
+      showAlert('#requestAlert', 'Your request has been submitted. Chat with admin is open below.', 'success');
+
+      // Open the admin chat for the new request
+      setTimeout(() => {
+        openChatForRequest(request.id, true);
+        const chatArea = document.querySelector(`[data-chat-area="${request.id}"]:not([hidden])`);
+        if (chatArea) chatArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 80);
     });
   }
 
@@ -378,62 +522,106 @@
       if (!button) return;
       event.preventDefault();
       clearSession();
-      window.location.href = '/signout';
+      window.location.href = msUrl('/signout');
     });
   }
 
-  // Chat helpers
-  function findChatByRequest(requestId) {
-    const state = readState();
-    return (state.chats || []).find(c => c.requestId === requestId) || null;
-  }
-
-  function escapeHtml(str) {
-    return (str || '').replace(/[&<>\"]/g, function (s) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s];
-    });
-  }
-
-  function renderChat(requestId) {
-    const container = document.getElementById(`chat-${requestId}`);
-    if (!container) return;
-    const chat = findChatByRequest(requestId);
+  function renderChatInArea(area, requestId, user, chat) {
+    if (!area) return;
+    if (!user) {
+      area.innerHTML = '<div class="makerspace-empty">Sign in to chat with admin.</div>';
+      return;
+    }
     if (!chat) {
-      container.innerHTML = '<div class="makerspace-empty">No chat available.</div>';
+      area.innerHTML = '<div class="makerspace-empty">No chat available.</div>';
       return;
     }
 
     const messagesHtml = (chat.messages || []).map(m => `
-      <div class="chat-message ${m.senderEmail === (currentUser()?.email) ? 'mine' : 'theirs'}">
+      <div class="chat-message ${m.senderEmail === user.email ? 'mine' : 'theirs'}">
         <div class="chat-meta"><strong>${escapeHtml(m.sender)}</strong> <span class="chat-ts">${new Date(m.ts).toLocaleString()}</span></div>
         <div class="chat-text">${escapeHtml(m.text)}</div>
       </div>
     `).join('');
 
-    container.innerHTML = `
+    const placeholder = user.role === 'admin'
+      ? 'Message the student...'
+      : 'Message the admin about this print...';
+
+    area.innerHTML = `
       <div class="chat-messages">${messagesHtml}</div>
       <form class="chatForm" data-request-id="${requestId}">
-        <input type="text" name="message" placeholder="Write a message to the admins..." required />
+        <input type="text" name="message" placeholder="${placeholder}" required />
         <button type="submit" class="makerspace-action-button">Send</button>
       </form>
     `;
   }
 
-  function attachChatHandlers() {
-    document.addEventListener('click', function (ev) {
-      const btn = ev.target.closest('[data-chat-toggle]');
-      if (!btn) return;
-      const requestId = btn.dataset.requestId;
-      if (!requestId) return;
-      const area = document.getElementById(`chat-${requestId}`);
-      if (!area) return;
-      const isHidden = area.hasAttribute('hidden');
-      if (isHidden) {
+  function renderChat(requestId) {
+    const user = currentUser();
+    const chat = findChatByRequest(requestId);
+    document.querySelectorAll(`[data-chat-area="${requestId}"]`).forEach((area) => {
+      renderChatInArea(area, requestId, user, chat);
+    });
+  }
+
+  function openChatForRequest(requestId, forceOpen) {
+    const areas = Array.from(document.querySelectorAll(`[data-chat-area="${requestId}"]`));
+    if (!areas.length) return;
+
+    const user = currentUser();
+    if (!user) {
+      const alertEl = document.querySelector('#requestAlert') || document.querySelector('#signinAlert');
+      if (alertEl) showAlert(`#${alertEl.id}`, 'Sign in to chat with admin about this request.', 'error');
+      return;
+    }
+
+    const state = readState();
+    const request = state.requests.find(item => item.id === requestId);
+    if (request && !canViewRequest(request, user)) {
+      areas.forEach((area) => {
+        area.innerHTML = '<div class="makerspace-empty">You do not have access to this request.</div>';
         area.removeAttribute('hidden');
-        renderChat(requestId);
+      });
+      return;
+    }
+
+    if (request) ensureChatForRequest(request, user);
+
+    areas.forEach((area) => {
+      const isOpen = !area.hasAttribute('hidden');
+      if (forceOpen || !isOpen) {
+        area.removeAttribute('hidden');
+        renderChatInArea(area, requestId, user, findChatByRequest(requestId));
       } else {
         area.setAttribute('hidden', '');
       }
+    });
+  }
+
+  function attachChatHandlers() {
+    document.addEventListener('click', function (ev) {
+      const toggleBtn = ev.target.closest('[data-chat-toggle]');
+      if (toggleBtn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openChatForRequest(toggleBtn.dataset.requestId, true);
+        return;
+      }
+
+      // Clicking a request card opens the admin chat
+      const card = ev.target.closest('[data-request-card]');
+      if (!card) return;
+      if (ev.target.closest('a, button, input, textarea, select, label, form, .chat-area')) return;
+      openChatForRequest(card.dataset.requestId, true);
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      const card = ev.target.closest('[data-request-card]');
+      if (!card || ev.target !== card) return;
+      ev.preventDefault();
+      openChatForRequest(card.dataset.requestId, true);
     });
 
     document.addEventListener('submit', function (ev) {
@@ -445,15 +633,36 @@
       if (!input) return;
       const text = input.value.trim();
       if (!text) return;
-      const state = readState();
-      const chat = state.chats.find(c => c.requestId === requestId);
+
       const user = currentUser();
-      if (!chat || !user) {
+      if (!user) {
         showAlert('#requestAlert', 'Unable to send message. Make sure you are signed in.', 'error');
         return;
       }
+
+      const state = readState();
+      const request = state.requests.find(item => item.id === requestId);
+      if (!request || !canViewRequest(request, user)) {
+        showAlert('#requestAlert', 'Unable to send message for this request.', 'error');
+        return;
+      }
+
+      state.chats = state.chats || [];
+      let chat = state.chats.find(c => c.requestId === requestId);
+      if (!chat) {
+        chat = {
+          id: `chat-${request.id}`,
+          requestId: request.id,
+          participants: [request.email, user.email, ADMIN_EMAIL].filter(Boolean),
+          messages: []
+        };
+        state.chats.unshift(chat);
+      }
+
       chat.messages.push({ sender: user.name, senderEmail: user.email, text, ts: Date.now() });
       if (!chat.participants.includes(ADMIN_EMAIL)) chat.participants.push(ADMIN_EMAIL);
+      if (request.email && !chat.participants.includes(request.email)) chat.participants.push(request.email);
+      if (user.email && !chat.participants.includes(user.email)) chat.participants.push(user.email);
       writeState(state);
       renderChat(requestId);
     });
@@ -468,14 +677,20 @@
       const requestId = target.dataset.requestId;
       if (!requestId) return;
 
+      const user = currentUser();
+      if (!user || user.role !== 'admin') return;
+
       const state = readState();
       const request = state.requests.find(item => item.id === requestId);
       if (!request) return;
 
-      request.status = action === 'approve' ? 'Approved' : 'Rejected';
+      if (action === 'approve') request.status = 'Approved';
+      if (action === 'reject') request.status = 'Rejected';
+      if (action === 'complete') request.status = 'Completed';
+
       writeState(state);
       renderAdminRequests();
-      renderRequests();
+      renderRequestLists();
     });
   }
 
@@ -483,7 +698,7 @@
     const user = currentUser();
     const welcome = document.getElementById('welcomeUser');
     if (!welcome) return;
-    welcome.textContent = user ? `Welcome back, ${user.name}` : 'Create an account to start printing';
+    welcome.textContent = user ? `Welcome back, ${user.name}` : 'Sign in to start printing';
   }
 
   function init() {
@@ -496,7 +711,7 @@
     attachSignout();
     attachAdminActions();
     attachChatHandlers();
-    renderRequests();
+    renderRequestLists();
     renderAdminRequests();
   }
 

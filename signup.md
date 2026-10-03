@@ -1,13 +1,13 @@
 ---
 layout: makerspace
 title: Sign Up
-permalink: /signup
+permalink: /signup/
 ---
 
 <div class="makerspace-panel form-page form-shell">
-  <span class="eyebrow">Join the club</span>
+  <span class="eyebrow">Create account</span>
   <h2>Create a Makerspace account</h2>
-  <p class="lead">Use your school email to sign up. Accounts are reviewed by club staff.</p>
+  <p class="lead">Use your school email to sign up. Accounts are reviewed by Makerspace staff.</p>
   <form id="signupForm">
     <div class="form-grid">
       <label class="field">
@@ -30,7 +30,7 @@ permalink: /signup
     <div id="signupAlert" class="alert" aria-live="polite"></div>
     <div class="form-actions">
       <button type="submit" class="makerspace-action-button">Sign Up</button>
-      <a class="makerspace-link-button" href="{{ '/signin' | relative_url }}">Already have an account?</a>
+      <a class="makerspace-link-button" href="{{ '/signin/' | relative_url }}">Already have an account?</a>
     </div>
   </form>
 </div>
