@@ -73,11 +73,18 @@ permalink: /
         </label>
         <label class="field">
           Material
-          <select name="material" required>
+          <select id="requestMaterial" name="material" required>
             <option value="PLA">PLA</option>
             <option value="PETG">PETG</option>
             <option value="SILK+">SILK+</option>
           </select>
+        </label>
+        <label class="field">
+          Color
+          <select id="requestColor" name="color" required>
+            <option value="">Select a material first</option>
+          </select>
+          <span class="field-hint" id="requestColorHint">Color options come from what staff currently stock for the selected material.</span>
         </label>
         <label class="field">
           Needed by
@@ -126,6 +133,39 @@ permalink: /
 
   <div class="makerspace-panel form-shell">
     <div id="adminRequestList" class="admin-list"></div>
+  </div>
+
+  <div class="makerspace-panel form-shell stacked-panel">
+    <div class="section-header">
+      <div>
+        <span class="eyebrow">Filament stock</span>
+        <h3>Print inventory</h3>
+        <p>Add colors we have on hand. Students only pick colors listed for the material they choose (PLA, PETG, SILK+).</p>
+      </div>
+    </div>
+
+    <form id="inventoryForm">
+      <div class="form-grid">
+        <label class="field">
+          Color / stock name
+          <input type="text" name="name" placeholder="Orange PLA basic" required>
+        </label>
+        <label class="field">
+          Material
+          <select name="material" required>
+            <option value="PLA">PLA</option>
+            <option value="PETG">PETG</option>
+            <option value="SILK+">SILK+</option>
+          </select>
+        </label>
+      </div>
+      <div id="inventoryAlert" class="alert" aria-live="polite"></div>
+      <div class="form-actions">
+        <button type="submit" class="makerspace-action-button">Add inventory item</button>
+      </div>
+    </form>
+
+    <div id="inventoryList" class="inventory-list"></div>
   </div>
 
   <div class="makerspace-panel form-shell stacked-panel">

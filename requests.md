@@ -22,11 +22,18 @@ permalink: /requests/
       </label>
       <label class="field">
         Material
-        <select name="material" required>
+        <select id="requestMaterial" name="material" required>
           <option value="PLA">PLA</option>
           <option value="PETG">PETG</option>
           <option value="SILK+">SILK+</option>
         </select>
+      </label>
+      <label class="field">
+        Color
+        <select id="requestColor" name="color" required>
+          <option value="">Select a material first</option>
+        </select>
+        <span class="field-hint" id="requestColorHint">Color options come from what staff currently stock for the selected material.</span>
       </label>
       <label class="field">
         Needed by

@@ -59,6 +59,7 @@
       ],
       requests: [],
       chats: [],
+      inventory: defaultInventory(),
       session: null
     };
   }
@@ -76,6 +77,7 @@
       if (!Array.isArray(parsed.users)) parsed.users = seed.users;
       if (!Array.isArray(parsed.requests)) parsed.requests = [];
       if (!Array.isArray(parsed.chats)) parsed.chats = [];
+      if (!Array.isArray(parsed.inventory)) parsed.inventory = seed.inventory;
       if (!parsed.session || typeof parsed.session !== 'object') parsed.session = null;
 
       // One-time cleanup: keep only the primary admin (Krish). Other legacy/demo
@@ -213,6 +215,7 @@
     const statusClass = status.toLowerCase();
     const chatLabel = opts.history ? 'Message admin' : 'Chat with admin';
     const scope = opts.scope || 'user';
+    const colorLabel = item.color || item.dimensions || 'See uploaded file';
     return `
       <article class="request-item${opts.history ? ' is-history' : ''}" data-request-card data-request-id="${item.id}" tabindex="0" role="button" aria-label="Open admin chat for ${escapeHtml(item.projectName || 'print request')}">
         <div class="request-item-header">
@@ -222,7 +225,7 @@
         <div class="request-meta">
           <span>By: ${escapeHtml(item.name || '')}</span>
           <span>Material: ${escapeHtml(item.material || '')}</span>
-          <span>Print size: ${escapeHtml(item.dimensions || '')}</span>
+          <span>Color: ${escapeHtml(colorLabel)}</span>
         </div>
         <p>${escapeHtml(item.description || 'No description provided.')}</p>
         <div class="request-meta">
@@ -268,7 +271,7 @@
             <span>${escapeHtml(item.name || '')}</span>
             <span>${escapeHtml(item.email || '')}</span>
             <span>${escapeHtml(item.material || '')}</span>
-            <span>${escapeHtml(item.dimensions || '')}</span>
+            <span>${escapeHtml(item.color || item.dimensions || '')}</span>
           </div>
           <p>${escapeHtml(item.description || 'No description provided.')}</p>
           <div class="admin-actions">
@@ -496,6 +499,163 @@
 
   const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
 
+  function defaultInventory() {
+    return [
+      { id: 'inv-pla-orange', name: 'Orange PLA basic', material: 'PLA' },
+      { id: 'inv-pla-black', name: 'Black PLA basic', material: 'PLA' },
+      { id: 'inv-pla-white', name: 'White PLA basic', material: 'PLA' },
+      { id: 'inv-petg-clear', name: 'Clear PETG', material: 'PETG' },
+      { id: 'inv-petg-black', name: 'Black PETG', material: 'PETG' },
+      { id: 'inv-silk-gold', name: 'Gold SILK+', material: 'SILK+' },
+      { id: 'inv-silk-silver', name: 'Silver SILK+', material: 'SILK+' }
+    ];
+  }
+
+  function inventoryForMaterial(state, material) {
+    return (state.inventory || []).filter((item) => item && item.material === material);
+  }
+
+  function populateColorOptions(material, selectedValue) {
+    const select = document.getElementById('requestColor');
+    const hint = document.getElementById('requestColorHint');
+    if (!select) return;
+
+    const state = readState();
+    const items = inventoryForMaterial(state, material || select.dataset.material || '');
+    const current = selectedValue != null ? selectedValue : select.value;
+
+    select.innerHTML = '';
+    if (!items.length) {
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = 'No colors in stock for this material';
+      select.appendChild(empty);
+      select.disabled = true;
+      if (hint) {
+        hint.textContent = 'Staff haven’t added any inventory for this material yet. Ask a Makerspace admin.';
+      }
+      return;
+    }
+
+    select.disabled = false;
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose a color in stock';
+    select.appendChild(placeholder);
+
+    items.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.name;
+      option.textContent = item.name;
+      select.appendChild(option);
+    });
+
+    const stillValid = current && items.some((item) => item.name === current);
+    select.value = stillValid ? current : '';
+    if (hint) {
+      hint.textContent = `Showing ${items.length} color${items.length === 1 ? '' : 's'} currently stocked for ${material || 'this material'}.`;
+    }
+  }
+
+  function renderInventoryList() {
+    const container = document.getElementById('inventoryList');
+    if (!container) return;
+
+    const state = readState();
+    const items = state.inventory || [];
+    if (!items.length) {
+      container.innerHTML = '<div class="makerspace-empty">No inventory yet. Add colors we stock so students can choose them.</div>';
+      return;
+    }
+
+    container.innerHTML = items.map((item) => `
+      <div class="inventory-item">
+        <div class="inventory-item-main">
+          <strong>${escapeHtml(item.name || 'Unnamed')}</strong>
+          <span class="makerspace-badge">${escapeHtml(item.material || '')}</span>
+        </div>
+        <button type="button" class="inventory-delete" data-inventory-delete="${escapeHtml(item.id || '')}">Remove</button>
+      </div>
+    `).join('');
+  }
+
+  function refreshColorOptionsFromForm() {
+    const materialSelect = document.getElementById('requestMaterial');
+    const material = materialSelect ? materialSelect.value : 'PLA';
+    populateColorOptions(material);
+  }
+
+  function attachInventoryForm() {
+    const form = document.getElementById('inventoryForm');
+    if (form) {
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const actor = currentUser();
+        if (!actor || actor.role !== 'admin') {
+          showAlert('#inventoryAlert', 'Only admin accounts can update inventory.', 'error');
+          return;
+        }
+
+        const data = new FormData(form);
+        const name = (data.get('name') || '').toString().trim();
+        const material = (data.get('material') || '').toString().trim();
+
+        if (!name || !material) {
+          showAlert('#inventoryAlert', 'Enter a color/stock name and choose a material.', 'error');
+          return;
+        }
+
+        if (!ALLOWED_MATERIALS.includes(material)) {
+          showAlert('#inventoryAlert', 'Material must be PLA, PETG, or SILK+.', 'error');
+          return;
+        }
+
+        const state = readState();
+        state.inventory = state.inventory || [];
+        const duplicate = state.inventory.some(
+          (item) => item.name.toLowerCase() === name.toLowerCase() && item.material === material
+        );
+        if (duplicate) {
+          showAlert('#inventoryAlert', 'That color is already listed for this material.', 'error');
+          return;
+        }
+
+        state.inventory.push({
+          id: `inv-${Date.now()}`,
+          name,
+          material,
+          createdBy: actor.email,
+          createdAt: Date.now()
+        });
+        writeState(state);
+        form.reset();
+        renderInventoryList();
+        refreshColorOptionsFromForm();
+        showAlert('#inventoryAlert', `Added ${name} to ${material} inventory.`, 'success');
+      });
+    }
+
+    document.addEventListener('click', function (event) {
+      const target = event.target.closest('[data-inventory-delete]');
+      if (!target) return;
+
+      const actor = currentUser();
+      if (!actor || actor.role !== 'admin') return;
+
+      const id = target.dataset.inventoryDelete;
+      const state = readState();
+      const before = (state.inventory || []).length;
+      state.inventory = (state.inventory || []).filter((item) => item.id !== id);
+      if (state.inventory.length === before) return;
+
+      writeState(state);
+      renderInventoryList();
+      refreshColorOptionsFromForm();
+      showAlert('#inventoryAlert', 'Inventory item removed.', 'success');
+    });
+  }
+
   function isValidModelFile(fileName) {
     return /\.stl$/i.test(fileName) || /\.3mf$/i.test(fileName);
   }
@@ -503,6 +663,13 @@
   function attachRequestForm() {
     const form = document.getElementById('requestForm');
     if (!form) return;
+
+    const materialSelect = document.getElementById('requestMaterial');
+    if (materialSelect) {
+      materialSelect.addEventListener('change', function () {
+        populateColorOptions(materialSelect.value);
+      });
+    }
 
     form.addEventListener('submit', function (event) {
       event.preventDefault();
@@ -518,6 +685,7 @@
       const fileName = file && typeof file.name === 'string' ? file.name : '';
       const projectName = (data.get('projectName') || '').toString().trim();
       const material = (data.get('material') || '').toString().trim();
+      const color = (data.get('color') || '').toString().trim();
       const description = (data.get('description') || '').toString().trim();
       const deadline = (data.get('deadline') || '').toString().trim();
 
@@ -528,6 +696,18 @@
 
       if (!ALLOWED_MATERIALS.includes(material)) {
         showAlert('#requestAlert', 'Choose PLA, PETG, or SILK+ — those are the only materials we stock.', 'error');
+        return;
+      }
+
+      const state = readState();
+      const stocked = inventoryForMaterial(state, material);
+      if (!stocked.length) {
+        showAlert('#requestAlert', `We don’t have ${material} inventory stocked right now. Pick another material or ask staff.`, 'error');
+        return;
+      }
+
+      if (!color || !stocked.some((item) => item.name === color)) {
+        showAlert('#requestAlert', 'Choose a color from the list stocked for your selected material.', 'error');
         return;
       }
 
@@ -551,6 +731,7 @@
         email: user.email,
         projectName,
         material,
+        color,
         dimensions: 'See uploaded file',
         description,
         deadline: deadline || 'Flexible',
@@ -559,7 +740,6 @@
         createdAt: Date.now()
       };
 
-      const state = readState();
       state.requests.unshift(request);
       state.chats = state.chats || [];
       state.chats.unshift({
@@ -583,6 +763,7 @@
       });
       writeState(state);
       form.reset();
+      refreshColorOptionsFromForm();
       renderRequestLists();
       renderAdminRequests();
       showAlert('#requestAlert', 'Your request has been submitted. Check the print request chat — we’ll confirm the price before printing begins.', 'success');
@@ -865,9 +1046,12 @@
     attachSignout();
     attachAdminActions();
     attachAdminCreateForm();
+    attachInventoryForm();
     attachChatHandlers();
     renderRequestLists();
     renderAdminRequests();
+    renderInventoryList();
+    populateColorOptions('PLA');
   }
 
   document.addEventListener('DOMContentLoaded', init);

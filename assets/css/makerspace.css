@@ -661,6 +661,55 @@ textarea {
   line-height: 1.55;
 }
 
+.inventory-list {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inventory-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ms-line);
+  border-radius: var(--ms-radius);
+  background: #fff;
+}
+
+.inventory-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.inventory-item-main strong {
+  color: var(--ms-navy);
+  font-size: 0.95rem;
+}
+
+.inventory-delete {
+  border: 1px solid var(--ms-line);
+  background: #fff;
+  color: var(--ms-muted);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.inventory-delete:hover {
+  border-color: #f0b4b4;
+  color: #b42318;
+  background: #fff7f7;
+}
+
 .field textarea {
   min-height: 110px;
   resize: vertical;
