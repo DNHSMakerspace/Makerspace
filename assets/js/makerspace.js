@@ -77,9 +77,37 @@
       if (!Array.isArray(parsed.requests)) parsed.requests = [];
       if (!Array.isArray(parsed.chats)) parsed.chats = [];
       if (!parsed.session || typeof parsed.session !== 'object') parsed.session = null;
-      if (!parsed.users.some(item => item.email === ADMIN_EMAIL)) {
-        parsed.users.unshift(seed.users[0]);
+
+      // One-time cleanup: keep only the primary admin (Krish). Other legacy/demo
+      // accounts are removed. Admin accounts created after this flag is set remain.
+      if (!parsed.purgedDemoAccounts) {
+        parsed.users = parsed.users.filter(
+          (user) => user && user.role === 'admin' && user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
+        );
+        if (!parsed.users.length) {
+          parsed.users = seed.users.slice();
+        } else {
+          // Reset primary admin to current seed credentials
+          parsed.users = [{ ...seed.users[0] }];
+        }
+        parsed.purgedDemoAccounts = true;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       }
+
+      // Always ensure the primary admin account exists
+      if (!parsed.users.some(item => item.email === ADMIN_EMAIL)) {
+        parsed.users.unshift({ ...seed.users[0] });
+      }
+
+      // Drop session if the signed-in user no longer exists
+      if (parsed.session && !parsed.users.some(item => item.email === parsed.session.email)) {
+        parsed.session = null;
+      }
+
+      // Force primary admin to current role
+      const primary = parsed.users.find(item => item.email === ADMIN_EMAIL);
+      if (primary) primary.role = 'admin';
+
       return parsed;
     } catch (error) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultState()));
