@@ -16,9 +16,9 @@
     <nav class="makerspace-nav" id="makerspaceNav" aria-label="Main navigation">
       <a href="{{ '/' | relative_url }}"{% if page.url == '/' or page.url == '/index.html' %} class="is-active" aria-current="page"{% endif %}>Home</a>
       <a href="{{ '/about/' | relative_url }}"{% if page.url == '/about/' or page.url == '/about' or page.url == '/about/index.html' %} class="is-active" aria-current="page"{% endif %}>About</a>
-      <a href="{{ '/' | relative_url }}#request" id="requestLink" data-auth-area="signed-in" hidden>Request a Print</a>
+      <a href="{{ '/submit/' | relative_url }}"{% if page.url == '/submit/' or page.url == '/submit' or page.url == '/submit/index.html' %} class="is-active" aria-current="page"{% endif %} id="requestLink" data-auth-area="signed-in" hidden>Request a Print</a>
       <a href="{{ '/requests/' | relative_url }}"{% if page.url == '/requests/' or page.url == '/requests' or page.url == '/requests/index.html' %} class="is-active" aria-current="page"{% endif %} data-auth-area="signed-in" hidden>My Requests</a>
-      <a href="{{ '/' | relative_url }}#admin" id="adminLink" data-auth-area="signed-in" hidden>Admin</a>
+      <a href="{{ '/admin/' | relative_url }}"{% if page.url == '/admin/' or page.url == '/admin' or page.url == '/admin/index.html' %} class="is-active" aria-current="page"{% endif %} id="adminLink" data-auth-area="signed-in" hidden>Admin</a>
       <a href="{{ '/signin/' | relative_url }}"{% if page.url == '/signin/' or page.url == '/signin' or page.url == '/signin/index.html' %} class="is-active" aria-current="page"{% endif %} data-auth-area="signed-out">Sign In</a>
       <a href="{{ '/signup/' | relative_url }}"{% if page.url == '/signup/' or page.url == '/signup' or page.url == '/signup/index.html' %} class="is-active" aria-current="page"{% endif %} data-auth-area="signed-out">Sign Up</a>
     </nav>

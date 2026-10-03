@@ -14,7 +14,8 @@ permalink: /
     </p>
 
     <div class="hero-actions">
-      <a class="makerspace-button" href="#request">Submit a print request</a>
+      <a class="makerspace-button" href="{{ '/submit/' | relative_url }}">Submit a print request</a>
+      <a class="makerspace-link-button" href="{{ '/requests/' | relative_url }}">My requests</a>
       <a class="makerspace-link-button" href="{{ '/signin/' | relative_url }}">Sign in</a>
     </div>
   </div>
@@ -52,158 +53,6 @@ permalink: /
   </div>
 </section>
 
-<section id="request" class="makerspace-section">
-  <div class="section-header">
-    <div>
-      <span class="eyebrow">Get started</span>
-      <h2>Print request form</h2>
-      <p id="welcomeUser">Sign in to start printing</p>
-      <p class="section-note">
-        Once a request is submitted, you’ll get a message in the print request chat to confirm the price before printing begins.
-      </p>
-    </div>
-  </div>
-
-  <div class="makerspace-panel form-shell">
-    <form id="requestForm">
-      <div class="form-grid">
-        <label class="field">
-          Project name
-          <input type="text" name="projectName" placeholder="Example: Robotics Battery Holder" required>
-        </label>
-        <label class="field">
-          Material
-          <select id="requestMaterial" name="material" required>
-            <option value="PLA">PLA</option>
-            <option value="PETG">PETG</option>
-            <option value="SILK+">SILK+</option>
-          </select>
-        </label>
-        <label class="field">
-          Color
-          <select id="requestColor" name="color" required>
-            <option value="">Select a material first</option>
-          </select>
-          <span class="field-hint" id="requestColorHint">Color options come from what staff currently stock for the selected material.</span>
-        </label>
-        <label class="field">
-          Needed by
-          <input type="date" name="deadline" title="Optional">
-          <span class="field-hint">Optional — leave blank if there isn’t a hard deadline.</span>
-        </label>
-        <div class="field field-full">
-          <label for="requestDescription">Description</label>
-          <textarea id="requestDescription" name="description" placeholder="Describe the part, tolerances, and any notes. Put dimensions here only if they aren’t already clear from the uploaded model file." required></textarea>
-          <span class="field-hint">Dimensions should already be specified in your STL/3MF file — add size notes here only if needed.</span>
-        </div>
-        <label class="field field-full">
-          Model file (STL or 3MF only)
-          <input type="file" name="file" accept=".stl,.3mf" required>
-        </label>
-      </div>
-      <div class="inline-note">
-        Sign in with your school email before submitting. Files must be .stl or .3mf.
-        After you submit, we’ll message you in the print request chat to confirm the price before printing begins.
-      </div>
-      <div id="requestAlert" class="alert" aria-live="polite"></div>
-      <div class="form-actions">
-        <button type="submit" class="makerspace-action-button">Submit print request</button>
-      </div>
-    </form>
-
-    <div>
-      <h3 class="request-subhead">Your active requests</h3>
-      <div id="requestsEmpty" class="makerspace-empty" hidden></div>
-      <div id="requestList" class="request-list"></div>
-
-      <h3 class="request-subhead">Print history</h3>
-      <div id="printHistory" class="request-list"></div>
-    </div>
-  </div>
-</section>
-
-<section id="admin" class="makerspace-section" data-role="admin" hidden>
-  <div class="section-header">
-    <div>
-      <span class="eyebrow">Staff tools</span>
-      <h2>Admin review</h2>
-      <p>Approve, reject, complete, and chat about student requests.</p>
-    </div>
-  </div>
-
-  <div class="makerspace-panel form-shell">
-    <div id="adminRequestList" class="admin-list"></div>
-  </div>
-
-  <div class="makerspace-panel form-shell stacked-panel">
-    <div class="section-header">
-      <div>
-        <span class="eyebrow">Filament stock</span>
-        <h3>Print inventory</h3>
-        <p>Add colors we have on hand. Students only pick colors listed for the material they choose (PLA, PETG, SILK+).</p>
-      </div>
-    </div>
-
-    <form id="inventoryForm">
-      <div class="form-grid">
-        <label class="field">
-          Color / stock name
-          <input type="text" name="name" placeholder="Orange PLA basic" required>
-        </label>
-        <label class="field">
-          Material
-          <select name="material" required>
-            <option value="PLA">PLA</option>
-            <option value="PETG">PETG</option>
-            <option value="SILK+">SILK+</option>
-          </select>
-        </label>
-      </div>
-      <div id="inventoryAlert" class="alert" aria-live="polite"></div>
-      <div class="form-actions">
-        <button type="submit" class="makerspace-action-button">Add inventory item</button>
-      </div>
-    </form>
-
-    <div id="inventoryList" class="inventory-list"></div>
-  </div>
-
-  <div class="makerspace-panel form-shell stacked-panel">
-    <div class="section-header">
-      <div>
-        <span class="eyebrow">Admin access</span>
-        <h3>Create admin account</h3>
-        <p>Only current admins can add other admin accounts.</p>
-      </div>
-    </div>
-
-    <form id="adminCreateForm">
-      <div class="form-grid">
-        <label class="field">
-          Full name
-          <input type="text" name="name" placeholder="Jane Admin" required>
-        </label>
-        <label class="field">
-          School email
-          <input type="email" name="email" placeholder="jadmin@stu.powayusd.com" required pattern="^[^@\s]+@stu\.powayusd\.com$" title="Use a Poway school email ending in @stu.powayusd.com">
-        </label>
-        <label class="field">
-          School ID
-          <input type="text" name="schoolId" placeholder="1954321" required pattern="^19\d{5}$" title="Enter a 7-digit ID starting with 19">
-        </label>
-        <label class="field">
-          Password
-          <input type="password" name="password" placeholder="Create a secure password" required minlength="4">
-        </label>
-      </div>
-      <div id="adminCreateAlert" class="alert" aria-live="polite"></div>
-      <div class="form-actions">
-        <button type="submit" class="makerspace-action-button">Create admin account</button>
-      </div>
-    </form>
-  </div>
-</section>
-
 <section class="makerspace-cta">
   <div class="cta-panel">
     <div>
@@ -211,7 +60,7 @@ permalink: /
       <h3>Ready to print something?</h3>
     </div>
     <div class="cta-actions">
-      <a class="makerspace-button" href="#request">Submit a request</a>
+      <a class="makerspace-button" href="{{ '/submit/' | relative_url }}">Submit a request</a>
       <a class="makerspace-link-button dark" href="{{ '/about/' | relative_url }}">Learn more</a>
     </div>
   </div>

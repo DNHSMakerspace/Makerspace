@@ -8,8 +8,9 @@ layout: null
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ page.title | default: 'Makerspace' }} · {{ site.title | default: 'Del Norte Makerspace' }}</title>
   {% if site.description %}<meta name="description" content="{{ site.description }}">{% endif %}
-  <link rel="icon" href="{{ '/favicon.ico' | relative_url }}">
-  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms5">
+  <link rel="icon" type="image/svg+xml" href="{{ '/assets/images/makerspace-favicon.svg' | relative_url }}?v=ms6">
+  <link rel="alternate icon" href="{{ '/favicon.ico' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms8">
   <script>
     // Injected so JS redirects always respect site.baseurl (never drops a path prefix).
     window.MAKERSPACE_BASE = {{ site.baseurl | jsonify }};
@@ -35,13 +36,15 @@ layout: null
         <nav class="footer-nav" aria-label="Footer">
           <a href="{{ '/' | relative_url }}">Home</a>
           <a href="{{ '/about/' | relative_url }}">About</a>
+          <a href="{{ '/submit/' | relative_url }}" id="footerSubmitLink" data-auth-area="signed-in" hidden>Submit</a>
           <a href="{{ '/requests/' | relative_url }}">Requests</a>
           <a href="{{ '/signin/' | relative_url }}">Sign In</a>
+          <a href="{{ '/admin/' | relative_url }}" id="footerAdminLink" data-auth-area="signed-in" hidden>Admin</a>
         </nav>
       </div>
     </footer>
   </div>
 
-  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms5"></script>
+  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms8"></script>
 </body>
 </html>

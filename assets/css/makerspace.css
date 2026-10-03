@@ -710,6 +710,66 @@ textarea {
   background: #fff7f7;
 }
 
+.member-list {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.member-card {
+  padding: 14px 16px;
+  border-radius: var(--ms-radius);
+  border: 1px solid var(--ms-line-soft);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+  box-shadow: var(--ms-shadow-sm);
+}
+
+.member-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.member-card-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ms-navy);
+  letter-spacing: -0.02em;
+}
+
+.member-details {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.member-details > div {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.member-details dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ms-muted);
+}
+
+.member-details dd {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ms-ink);
+  word-break: break-word;
+}
+
 .field textarea {
   min-height: 110px;
   resize: vertical;
@@ -1174,6 +1234,10 @@ textarea {
   }
 
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .member-list {
     grid-template-columns: 1fr;
   }
 

@@ -110,7 +110,8 @@
       const primary = parsed.users.find(item => item.email === ADMIN_EMAIL);
       if (primary) primary.role = 'admin';
 
-      return parsed;
+      // Seed a demo student + active print request for chat testing
+      return ensureDemoChatSeed(parsed);
     } catch (error) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultState()));
       return defaultState();
@@ -332,6 +333,7 @@
   function updateSignedInState() {
     const user = currentUser();
     const isSignedIn = !!user;
+    const isAdmin = !!(user && user.role === 'admin');
 
     document.querySelectorAll('[data-auth-area]').forEach((el) => {
       const role = el.dataset.authArea;
@@ -343,7 +345,6 @@
     document.querySelectorAll('[data-role]').forEach((el) => {
       const requiredRole = el.dataset.role;
       const shouldShow = !!(user && user.role === requiredRole);
-      // Keep signed-out hidden unless parent auth-area already controls it
       el.hidden = !shouldShow;
     });
 
@@ -355,7 +356,10 @@
     if (requestLink) requestLink.hidden = !isSignedIn;
 
     const adminLink = document.getElementById('adminLink');
-    if (adminLink) adminLink.hidden = !(isSignedIn && user && user.role === 'admin');
+    if (adminLink) adminLink.hidden = !isAdmin;
+
+    const footerAdminLink = document.getElementById('footerAdminLink');
+    if (footerAdminLink) footerAdminLink.hidden = !isAdmin;
 
     const nav = document.querySelector('.makerspace-nav');
     if (nav) {
@@ -511,6 +515,89 @@
     ];
   }
 
+  const DEMO_STUDENT_EMAIL = 'teststudent@stu.powayusd.com';
+  const DEMO_STUDENT_ID = 'demo-request-1';
+
+  function demoStudentUser() {
+    return {
+      id: 'demo-student-1',
+      name: 'Test Student',
+      email: DEMO_STUDENT_EMAIL,
+      schoolId: '1999999',
+      password: 'test1234',
+      role: 'member'
+    };
+  }
+
+  function demoActiveRequest() {
+    return {
+      id: DEMO_STUDENT_ID,
+      name: 'Test Student',
+      email: DEMO_STUDENT_EMAIL,
+      projectName: 'Robotics Gear Mount',
+      material: 'PLA',
+      color: 'Orange PLA basic',
+      dimensions: 'See uploaded file',
+      description: 'Mount plate for the FTC gear assembly. Keep walls 3 mm thick. Size is in the STL (about 80 x 40 x 12 mm).',
+      deadline: 'Flexible',
+      fileName: 'gear-mount-v2.stl',
+      status: 'Pending',
+      createdAt: Date.now() - 1000 * 60 * 42
+    };
+  }
+
+  function demoChatForRequest(request) {
+    const t = Date.now() - 1000 * 60 * 40;
+    return {
+      id: `chat-${request.id}`,
+      requestId: request.id,
+      participants: [DEMO_STUDENT_EMAIL, ADMIN_EMAIL],
+      messages: [
+        {
+          sender: 'Test Student',
+          senderEmail: DEMO_STUDENT_EMAIL,
+          text: 'Hi! I submitted a gear mount for robotics. Can you check if PLA Orange works for this?',
+          ts: t
+        },
+        {
+          sender: 'Makerspace',
+          senderEmail: ADMIN_EMAIL,
+          text: 'Looks good — Orange PLA basic should work. Before we print, I’ll confirm the price here. Rough estimate is about $4–$6 depending on infill.',
+          ts: t + 1000 * 60 * 8
+        },
+        {
+          sender: 'Test Student',
+          senderEmail: DEMO_STUDENT_EMAIL,
+          text: 'That works for me. Thanks!',
+          ts: t + 1000 * 60 * 12
+        }
+      ]
+    };
+  }
+
+  function ensureDemoChatSeed(state) {
+    if (state.seededDemoChat) return state;
+
+    const student = demoStudentUser();
+    if (!state.users.some((user) => user.email === DEMO_STUDENT_EMAIL)) {
+      state.users.push(student);
+    }
+
+    const request = demoActiveRequest();
+    if (!state.requests.some((item) => item.id === DEMO_STUDENT_ID)) {
+      state.requests.unshift(request);
+    }
+
+    const existing = (state.chats || []).find((chat) => chat.requestId === DEMO_STUDENT_ID);
+    if (!existing) {
+      state.chats = state.chats || [];
+      state.chats.unshift(demoChatForRequest(request));
+    }
+
+    state.seededDemoChat = true;
+    return state;
+  }
+
   function inventoryForMaterial(state, material) {
     return (state.inventory || []).filter((item) => item && item.material === material);
   }
@@ -577,6 +664,70 @@
         <button type="button" class="inventory-delete" data-inventory-delete="${escapeHtml(item.id || '')}">Remove</button>
       </div>
     `).join('');
+  }
+
+  function memberMatchesQuery(user, query) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    const fields = [
+      user.name,
+      user.email,
+      user.schoolId,
+      user.password,
+      user.role
+    ];
+    return fields.some((value) => (value || '').toString().toLowerCase().includes(q));
+  }
+
+  function renderMemberList(query) {
+    const container = document.getElementById('memberList');
+    if (!container) return;
+
+    const user = currentUser();
+    if (!user || user.role !== 'admin') {
+      container.innerHTML = '';
+      return;
+    }
+
+    const state = readState();
+    const users = (state.users || []).filter((item) => memberMatchesQuery(item, query));
+
+    if (!users.length) {
+      container.innerHTML = '<div class="makerspace-empty">No members match that search.</div>';
+      return;
+    }
+
+    container.innerHTML = users.map((item) => `
+      <article class="member-card">
+        <div class="member-card-header">
+          <h4>${escapeHtml(item.name || 'Unnamed')}</h4>
+          <span class="makerspace-badge ${item.role === 'admin' ? 'approved' : ''}">${escapeHtml(item.role || 'member')}</span>
+        </div>
+        <dl class="member-details">
+          <div>
+            <dt>School ID</dt>
+            <dd>${escapeHtml(item.schoolId || '—')}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>${escapeHtml(item.email || '—')}</dd>
+          </div>
+          <div>
+            <dt>Password</dt>
+            <dd>${escapeHtml(item.password || '—')}</dd>
+          </div>
+        </dl>
+      </article>
+    `).join('');
+  }
+
+  function attachMemberSearch() {
+    const input = document.getElementById('memberSearch');
+    if (!input) return;
+
+    input.addEventListener('input', function () {
+      renderMemberList(input.value.trim());
+    });
   }
 
   function refreshColorOptionsFromForm() {
@@ -1026,6 +1177,7 @@
       writeState(state);
       form.reset();
       showAlert('#adminCreateAlert', `Admin account created for ${name}. They can sign in with ${email}.`, 'success');
+      renderMemberList((document.getElementById('memberSearch') || {}).value || '');
     });
   }
 
@@ -1037,6 +1189,8 @@
   }
 
   function init() {
+    // Ensure demo chat seed is written even on first paint
+    writeState(readState());
     attachNavToggle();
     updateSignedInState();
     initializeWelcome();
@@ -1047,10 +1201,12 @@
     attachAdminActions();
     attachAdminCreateForm();
     attachInventoryForm();
+    attachMemberSearch();
     attachChatHandlers();
     renderRequestLists();
     renderAdminRequests();
     renderInventoryList();
+    renderMemberList('');
     populateColorOptions('PLA');
   }
 

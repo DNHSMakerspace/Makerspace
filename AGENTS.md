@@ -69,10 +69,10 @@ while preserving all critical instructions. The agent must still communicate wit
 ### Makerspace 页面（Del Norte Makerspace）
 
 * 专用布局：[_layouts/makerspace.html](_layouts/makerspace.html) + 共享顶栏 [_includes/makerspace-topbar.html](_includes/makerspace-topbar.html)；样式唯一来源是 [assets/css/makerspace.css](assets/css/makerspace.css)，逻辑在 [assets/js/makerspace.js](assets/js/makerspace.js)。
-* 页面：`index.html`（首页，permalink `/`）、`about.md`、`requests.md`、`signin.md`、`signup.md`、`signout.md`；这些页都用 `layout: makerspace`，不要再包 minima/`page` 布局（否则会带出主题 header/post-title）。
+* 页面：`index.html`（首页，permalink `/`）、`about.md`、`submit.md`（提交打印请求）、`requests.md`（活动请求 + 历史）、`admin.md`（管理工具 + 成员目录）、`signin.md`、`signup.md`、`signout.md`；这些页都用 `layout: makerspace`，不要再包 minima/`page` 布局（否则会带出主题 header/post-title）。
 * `index.md` 是未发布的旧首页草稿（`published: false`），避免与 `index.html` 的 `/` permalink 冲突；首页改动只改 `index.html`。
 * 品牌名统一为 **Del Norte Makerspace**（与 `_config.yml` 一致）。
-* URL 约定：makerspace 页面使用带尾斜杠的 pretty permalink（`/about/`、`/requests/`、`/signin/`、`/signup/`、`/signout/`）；HTML 链接一律 `relative_url`；JS 跳转必须走 `msUrl()`（读取 `window.MAKERSPACE_BASE` / `data-makerspace-base`），禁止写死 `window.location.href = '/requests'` 这类根路径，否则会丢 baseurl 或因有无尾斜杠 404。
+* URL 约定：makerspace 页面使用带尾斜杠的 pretty permalink（`/about/`、`/submit/`、`/requests/`、`/admin/`、`/signin/`、`/signup/`、`/signout/`）；HTML 链接一律 `relative_url`；JS 跳转必须走 `msUrl()`（读取 `window.MAKERSPACE_BASE` / `data-makerspace-base`），禁止写死 `window.location.href = '/requests'` 这类根路径，否则会丢 baseurl 或因有无尾斜杠 404。
 
 ### 源文件与生成文件
 

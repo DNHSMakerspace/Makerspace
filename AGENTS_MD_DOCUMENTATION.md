@@ -67,10 +67,10 @@ Split logic into clear layers:
 ### Makerspace Pages (Del Norte Makerspace)
 
 * Dedicated layout: [_layouts/makerspace.html](_layouts/makerspace.html) + shared topbar [_includes/makerspace-topbar.html](_includes/makerspace-topbar.html); the only stylesheet is [assets/css/makerspace.css](assets/css/makerspace.css), with logic in [assets/js/makerspace.js](assets/js/makerspace.js).
-* Pages: `index.html` (homepage, permalink `/`), `about.md`, `requests.md`, `signin.md`, `signup.md`, `signout.md`; all use `layout: makerspace`. Do not wrap them in the minima/`page` layout again (that reintroduces the theme header/post-title chrome).
+* Pages: `index.html` (homepage, permalink `/`), `about.md`, `submit.md` (print request form), `requests.md` (active requests + print history), `admin.md` (admin tools + member directory), `signin.md`, `signup.md`, `signout.md`; all use `layout: makerspace`. Do not wrap them in the minima/`page` layout again (that reintroduces the theme header/post-title chrome).
 * `index.md` is an unpublished legacy homepage draft (`published: false`) so it does not collide with `index.html`'s `/` permalink; homepage edits belong in `index.html`.
 * Brand name is consistently **Del Norte Makerspace** (matches `_config.yml`).
-* URL convention: makerspace pages use trailing-slash pretty permalinks (`/about/`, `/requests/`, `/signin/`, `/signup/`, `/signout/`); HTML links must use `relative_url`; JS navigation must use `msUrl()` (reads `window.MAKERSPACE_BASE` / `data-makerspace-base`). Never hard-code `window.location.href = '/requests'` — that drops `site.baseurl` or 404s depending on trailing slashes.
+* URL convention: makerspace pages use trailing-slash pretty permalinks (`/about/`, `/submit/`, `/requests/`, `/admin/`, `/signin/`, `/signup/`, `/signout/`); HTML links must use `relative_url`; JS navigation must use `msUrl()` (reads `window.MAKERSPACE_BASE` / `data-makerspace-base`). Never hard-code `window.location.href = '/requests'` — that drops `site.baseurl` or 404s depending on trailing slashes.
 
 ### Sources vs Generated Files
 

@@ -13,6 +13,7 @@ permalink: /about/
   </p>
   <div class="page-header-actions">
     <a class="makerspace-button" href="{{ '/' | relative_url }}">Back home</a>
+    <a class="makerspace-link-button" href="{{ '/submit/' | relative_url }}">Submit request</a>
     <a class="makerspace-link-button" href="{{ '/requests/' | relative_url }}">My requests</a>
   </div>
 </header>
