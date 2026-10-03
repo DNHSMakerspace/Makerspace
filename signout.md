@@ -13,11 +13,3 @@ permalink: /signout/
     <a class="makerspace-link-button" href="{{ '/signin/' | relative_url }}">Sign in again</a>
   </div>
 </header>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const state = JSON.parse(localStorage.getItem('makerspace-demo-state') || '{}');
-    if (state) state.session = null;
-    localStorage.setItem('makerspace-demo-state', JSON.stringify(state));
-  });
-</script>

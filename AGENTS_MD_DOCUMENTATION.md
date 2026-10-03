@@ -63,6 +63,7 @@ Split logic into clear layers:
 * Treat [Makefile](Makefile) as the single source of truth; common targets are `make`/`make serve-current`, `make dev`, `make stop`, `make convert`, and `make convert-single` (details in [README.md](README.md)).
 * Order matters: stop → build projects → convert notebooks/docx → split courses → jekyll serve (follow [Makefile](Makefile)).
 * Project builds must run the [SASS import generator](scripts/generate_sass_imports.py) to create `_sass/projects/_all.scss`; `build-registered-projects` owns this dependency so Jekyll can resolve `projects/all`.
+* **Makerspace-only publish:** `_config.yml` `exclude` currently blocks non-makerspace pages/assets (navigation, courses, games, etc.). The public site only builds makerspace pages. To restore the full site, update `exclude` and `minima.nav_pages` together — do not only delete makerspace pages.
 
 ### Makerspace Pages (Del Norte Makerspace)
 
@@ -85,7 +86,8 @@ Split logic into clear layers:
 
 ### Backend Boundary
 
-* The backend service lives under [node_backend/README.md](node_backend/README.md) and is separate from the site build pipeline; read it before making backend changes.
+* Makerspace shared backend: [makerspace_backend/README.md](makerspace_backend/README.md) (`python3 makerspace_backend/server.py`, default `:8787`, data in `makerspace_backend/data/db.json`). Accounts/chats/inventory/requests are owned by that API; browser `localStorage` is only a cache. Production must set `makerspace_api` in `_config.yml` to the deployed API base URL. `make makerspace-api` / `make makerspace-api-stop`.
+* Other backend services live in [node_backend/README.md](node_backend/README.md) and are separate from the site build pipeline; read it before making backend changes.
 
 ## Coding Standards
 

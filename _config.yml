@@ -22,22 +22,139 @@ github_repo: "makerspace"
 baseurl: ""
 future: true
 
+# Shared makerspace API (auth, chats, inventory, requests across devices).
+# Local dev: makerspace_backend/server.py on :8787 (auto-detected on localhost).
+# Production: set the public base URL of your deployed makerspace API here.
+makerspace_api: ""
+
 # Single source of truth for the Google OAuth client id -- assets/js/api/config.js's
 # GOOGLE_CLIENT_ID and login.md's #g_id_onload data-client_id both pull from this at
 # build time via Liquid, so the two can never drift out of sync with each other again.
 google_client_id: "65827797404-ccjleg7jg4g2an8ddpmhnlca4ii2gk8q.apps.googleusercontent.com"
 
-# Exclude from Jekyll watch - these are processed by our conversion scripts
-# This prevents double-regeneration when saving notebooks/docx files
+# Exclude from the public site build.
+# Makerspace-only site: only makerspace pages + their assets should publish.
+# Everything else (courses, navigation, games, legacy pages) is kept in the repo
+# but is not generated, so those URLs 404.
 exclude:
 # Jekyll defaults
   - vendor
-# Custom excludes
+# Custom excludes — build tooling / sources
   - Makefile
+  - Gemfile
+  - Gemfile_Patch.rb
+  - README.md
+  - README4YML.md
+  - AGENTS.md
+  - AGENTS_MD_DOCUMENTATION.md
+  - LICENSE
+  - requirements.txt
+  - scripts
+  - tests
+  - node_backend
+  - makerspace_backend
+  - make-debug
+  - venv
   - _notebooks
   - _docx
   - _projects
-  - venv
+  - _themes
+  - _sass
+  - _data
+  - _posts
+# Non-makerspace content trees
+  - navigation
+  - pages
+  - capstone
+  - design
+  - docs
+  - hacks
+  - media
+  - peppamazegame
+# Non-makerspace root pages / leftovers
+  - index.md
+  - index3.md
+  - gamebuilder-upload-instructions.md
+  - instructions.md
+  - sprintinfo.md
+  - login.css
+  - manifest.json
+# Non-makerspace assets (makerspace only needs assets/css/makerspace.css,
+# assets/js/makerspace.js, and assets/images/*favicon*)
+  - assets/css/aesthetihawk
+  - assets/css/certificate_overview.css
+  - assets/css/crypto.css
+  - assets/css/csp_home.css
+  - assets/css/custom-styles.css
+  - assets/css/leaderboard.css
+  - assets/css/marketEvents.css
+  - assets/css/new-capstone.css
+  - assets/css/pause-menu.css
+  - assets/css/simulations.css
+  - assets/js/aesthetihawk
+  - assets/js/api
+  - assets/js/bigsix
+  - assets/js/block-unlock
+  - assets/js/chat
+  - assets/js/chatbot.js
+  - assets/js/code-runner-analytics.js
+  - assets/js/crypto
+  - assets/js/csa-lessons
+  - assets/js/digitalFamine
+  - assets/js/FooterOverride.js
+  - assets/js/fortuneFinders
+  - assets/js/GameEnginev1
+  - assets/js/GameEnginev1.1
+  - assets/js/games-directory-search.js
+  - assets/js/gist-export-button.js
+  - assets/js/gist.js
+  - assets/js/grading-module.js
+  - assets/js/help-video.js
+  - assets/js/javaUI
+  - assets/js/keyboard-shortcuts.js
+  - assets/js/layer.js
+  - assets/js/lesson-completion-bigsix.js
+  - assets/js/lesson-completion.js
+  - assets/js/lessonbase.js
+  - assets/js/lessonbasecapture.js
+  - assets/js/logicGateGame
+  - assets/js/mini-lesson
+  - assets/js/murderMystery
+  - assets/js/new-capstone.js
+  - assets/js/nitd_rpg
+  - assets/js/ocs-analytics-dashboard.js
+  - assets/js/ocs-analytics-enhanced.js
+  - assets/js/ocs-analytics-tracker.js
+  - assets/js/pages
+  - assets/js/platformer3x
+  - assets/js/player.js
+  - assets/js/runner-io.js
+  - assets/js/search-data.json
+  - assets/js/search.js
+  - assets/js/simulations.js
+  - assets/js/solitaire
+  - assets/js/spaceColony
+  - assets/js/submissions
+  - assets/js/three.r119.min.js
+  - assets/js/user-preferences.js
+  - assets/js/vanta.birds.min.js
+  - assets/js/vanta.halo.min.js
+  - assets/js/vanta.net.min.js
+  - assets/js/vanta.rings.min.js
+  - assets/js/vendor
+# Non-makerspace media / misc assets
+  - assets/Adobe Express - file.png
+  - assets/audio
+  - assets/Bathroom
+  - assets/badges
+  - assets/capstoneguide.mp4
+  - assets/data
+  - assets/groups.json
+  - assets/icons
+  - assets/pdfs
+  - assets/screenQueue
+  - assets/sounds
+  - images
 # Note: / auto-excluded by Jekyll (underscore prefix)
 
 
@@ -128,9 +245,6 @@ minima:
   social_links:
     - { platform: github, user_url: "https://github.com/open-coding-society" }
     - { platform: x, user_url: "https://x.com/Open_Coding" }
-    - { platform: youtube, user_url: "https://www.youtube.com/@OpenCodingSociety" } 
-  nav_pages:
-    - navigation/blog.md
-    - navigation/courses.md
-    - navigation/capstone.md
-    - navigation/search.md
+    - { platform: youtube, user_url: "https://www.youtube.com/@OpenCodingSociety" }
+  # Makerspace-only site — no non-makerspace nav pages are published.
+  nav_pages: []

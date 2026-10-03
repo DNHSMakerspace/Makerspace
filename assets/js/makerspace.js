@@ -1,10 +1,27 @@
 (function () {
   const STORAGE_KEY = 'makerspace-demo-state';
+  const SESSION_TOKEN_KEY = 'makerspace-session-token';
   const ADMIN_EMAIL = 'krishk27411@stu.powayusd.com';
   const ACTIVE_STATUSES = ['pending', 'approved'];
   const HISTORY_STATUSES = ['rejected', 'completed', 'closed'];
+  const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
 
-  // Resolve site baseurl so redirects never drop a path prefix (e.g. /Makerspace).
+  // Shared API base. Layout injects window.MAKERSPACE_API in production;
+  // localhost auto-points at makerspace_backend/server.py on :8787.
+  function resolveApiBase() {
+    if (typeof window !== 'undefined' && typeof window.MAKERSPACE_API === 'string' && window.MAKERSPACE_API) {
+      return window.MAKERSPACE_API.replace(/\/$/, '');
+    }
+    if (typeof window === 'undefined') return '';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8787';
+    return '';
+  }
+
+  const API_BASE = resolveApiBase();
+  let stateCache = null;
+  let apiHealthy = null;
+
   function msBaseUrl() {
     if (typeof window !== 'undefined' && typeof window.MAKERSPACE_BASE === 'string') {
       return window.MAKERSPACE_BASE.replace(/\/$/, '');
@@ -22,7 +39,6 @@
     return '';
   }
 
-  // Build a site-absolute path with optional baseurl + pretty trailing slash.
   function msUrl(path) {
     const base = msBaseUrl();
     let raw = path || '/';
@@ -36,13 +52,39 @@
     let clean = raw.split('?')[0];
     if (clean.length > 1 && !clean.endsWith('/')) clean += '/';
     if (clean !== '/' && base) {
-      // Avoid doubling the base if a caller already included it.
       if (clean === base + '/' || clean.startsWith(base + '/')) {
         return clean + hash;
       }
     }
     if (clean === '/') return (base || '') + '/' + hash;
     return base + clean + hash;
+  }
+
+  function sessionToken() {
+    try {
+      return localStorage.getItem(SESSION_TOKEN_KEY) || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function setSessionToken(token) {
+    try {
+      if (token) localStorage.setItem(SESSION_TOKEN_KEY, token);
+      else localStorage.removeItem(SESSION_TOKEN_KEY);
+    } catch (error) { /* ignore quota */ }
+  }
+
+  function defaultInventory() {
+    return [
+      { id: 'inv-pla-orange', name: 'Orange PLA basic', material: 'PLA' },
+      { id: 'inv-pla-black', name: 'Black PLA basic', material: 'PLA' },
+      { id: 'inv-pla-white', name: 'White PLA basic', material: 'PLA' },
+      { id: 'inv-petg-clear', name: 'Clear PETG', material: 'PETG' },
+      { id: 'inv-petg-black', name: 'Black PETG', material: 'PETG' },
+      { id: 'inv-silk-gold', name: 'Gold SILK+', material: 'SILK+' },
+      { id: 'inv-silk-silver', name: 'Silver SILK+', material: 'SILK+' }
+    ];
   }
 
   function defaultState() {
@@ -64,73 +106,126 @@
     };
   }
 
+  function normalizeServerState(raw) {
+    const seed = defaultState();
+    const parsed = raw && typeof raw === 'object' ? raw : {};
+    return {
+      users: Array.isArray(parsed.users) ? parsed.users : seed.users,
+      requests: Array.isArray(parsed.requests) ? parsed.requests : [],
+      chats: Array.isArray(parsed.chats) ? parsed.chats : [],
+      inventory: Array.isArray(parsed.inventory) ? parsed.inventory : seed.inventory,
+      session: parsed.session && typeof parsed.session === 'object' ? parsed.session : null
+    };
+  }
+
   function readState() {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    if (stateCache) return stateCache;
+
+    let raw = null;
+    try {
+      raw = localStorage.getItem(STORAGE_KEY);
+    } catch (error) {
+      raw = null;
+    }
+
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultState()));
-      return defaultState();
+      const fresh = defaultState();
+      writeState(fresh);
+      return fresh;
     }
 
     try {
       const parsed = JSON.parse(raw);
-      const seed = defaultState();
-      if (!Array.isArray(parsed.users)) parsed.users = seed.users;
-      if (!Array.isArray(parsed.requests)) parsed.requests = [];
-      if (!Array.isArray(parsed.chats)) parsed.chats = [];
-      if (!Array.isArray(parsed.inventory)) parsed.inventory = seed.inventory;
-      if (!parsed.session || typeof parsed.session !== 'object') parsed.session = null;
-
-      // One-time cleanup: keep only the primary admin (Krish). Other legacy/demo
-      // accounts are removed. Admin accounts created after this flag is set remain.
-      if (!parsed.purgedDemoAccounts) {
-        parsed.users = parsed.users.filter(
-          (user) => user && user.role === 'admin' && user.email && user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()
-        );
-        if (!parsed.users.length) {
-          parsed.users = seed.users.slice();
-        } else {
-          // Reset primary admin to current seed credentials
-          parsed.users = [{ ...seed.users[0] }];
-        }
-        parsed.purgedDemoAccounts = true;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      }
-
-      // Always ensure the primary admin account exists
-      if (!parsed.users.some(item => item.email === ADMIN_EMAIL)) {
-        parsed.users.unshift({ ...seed.users[0] });
-      }
-
-      // Drop session if the signed-in user no longer exists
-      if (parsed.session && !parsed.users.some(item => item.email === parsed.session.email)) {
-        parsed.session = null;
-      }
-
-      // Force primary admin to current role
-      const primary = parsed.users.find(item => item.email === ADMIN_EMAIL);
-      if (primary) primary.role = 'admin';
-
-      // Seed a demo student + active print request for chat testing
-      return ensureDemoChatSeed(parsed);
+      const normalized = normalizeServerState(parsed);
+      stateCache = normalized;
+      return stateCache;
     } catch (error) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultState()));
-      return defaultState();
+      const fresh = defaultState();
+      writeState(fresh);
+      return fresh;
     }
   }
 
   function writeState(state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    stateCache = normalizeServerState(state);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateCache));
+    } catch (error) { /* ignore quota */ }
+    return stateCache;
+  }
+
+  function applyApiPayload(payload) {
+    if (!payload || typeof payload !== 'object') return readState();
+    return writeState(payload);
+  }
+
+  async function apiFetch(path, options) {
+    if (!API_BASE) {
+      const err = new Error('Makerspace API is not configured for this environment.');
+      err.code = 'NO_API';
+      throw err;
+    }
+    const opts = options || {};
+    const headers = Object.assign({}, opts.headers || {});
+    if (opts.body && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    const token = sessionToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(API_BASE + path, Object.assign({}, opts, { headers }));
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (error) {
+      data = null;
+    }
+    if (!res.ok) {
+      const message = (data && data.error) || `Request failed (${res.status})`;
+      const err = new Error(message);
+      err.status = res.status;
+      err.code = 'API_ERROR';
+      throw err;
+    }
+    apiHealthy = true;
+    return data || {};
+  }
+
+  async function hydrateFromApi() {
+    if (!API_BASE) {
+      apiHealthy = false;
+      return false;
+    }
+    try {
+      const data = await apiFetch('/api/state');
+      applyApiPayload(data);
+      apiHealthy = true;
+      return true;
+    } catch (error) {
+      apiHealthy = false;
+      console.warn('Makerspace API hydrate failed; using local cache.', error);
+      return false;
+    }
   }
 
   function currentUser() {
     const state = readState();
-    return state.session ? state.users.find(user => user.email === state.session.email) || null : null;
+    return state.session
+      ? (state.users.find((user) => user.email === state.session.email) || null)
+      : null;
   }
 
-  function clearSession() {
-    const state = readState();
-    state.session = null;
-    writeState(state);
+  async function clearSession() {
+    const token = sessionToken();
+    const local = readState();
+    local.session = null;
+    writeState(local);
+    if (token && API_BASE) {
+      try {
+        await apiFetch('/api/auth/signout', { method: 'POST' });
+      } catch (error) { /* token already useless locally */ }
+    }
+    setSessionToken('');
   }
 
   function showAlert(selector, message, type) {
@@ -160,43 +255,13 @@
 
   function findChatByRequest(requestId) {
     const state = readState();
-    return (state.chats || []).find(c => c.requestId === requestId) || null;
-  }
-
-  function ensureChatForRequest(request, user) {
-    const state = readState();
-    state.chats = state.chats || [];
-    let chat = state.chats.find(c => c.requestId === request.id);
-    if (!chat) {
-      chat = {
-        id: `chat-${request.id}`,
-        requestId: request.id,
-        participants: withAdminParticipants(state, [request.email, user.email]),
-        messages: [
-          {
-            sender: user.name,
-            senderEmail: user.email,
-            text: 'Request created. Waiting for admin review.',
-            ts: Date.now()
-          },
-          {
-            sender: 'Makerspace',
-            senderEmail: ADMIN_EMAIL,
-            text: 'Thanks! Once we review this request, we’ll message you here to confirm the price before printing begins.',
-            ts: Date.now()
-          }
-        ]
-      };
-      state.chats.unshift(chat);
-      writeState(state);
-    }
-    return chat;
+    return (state.chats || []).find((c) => c.requestId === requestId) || null;
   }
 
   function adminEmails(state) {
     return (state.users || [])
-      .filter(user => user && user.role === 'admin')
-      .map(user => user.email)
+      .filter((user) => user && user.role === 'admin')
+      .map((user) => user.email)
       .filter(Boolean);
   }
 
@@ -247,8 +312,7 @@
     if (!container) return;
 
     const state = readState();
-    // Admin review queue: open jobs only (history lives in print history)
-    const openJobs = state.requests.filter(item => isActiveStatus(item.status));
+    const openJobs = state.requests.filter((item) => isActiveStatus(item.status));
 
     if (!openJobs.length) {
       container.innerHTML = '<div class="makerspace-empty">There are no open print jobs right now.</div>';
@@ -316,18 +380,17 @@
       emptyEl.textContent = '';
     }
 
-    // Regular users only see their own requests; admins see all.
-    const visible = state.requests.filter(item => canViewRequest(item, user));
-    const active = visible.filter(item => isActiveStatus(item.status));
-    const history = visible.filter(item => isHistoryStatus(item.status));
+    const visible = state.requests.filter((item) => canViewRequest(item, user));
+    const active = visible.filter((item) => isActiveStatus(item.status));
+    const history = visible.filter((item) => isHistoryStatus(item.status));
 
     listEl.innerHTML = active.length
-      ? active.map(item => buildRequestMarkup(item, { history: false, scope: 'active' })).join('')
+      ? active.map((item) => buildRequestMarkup(item, { history: false, scope: 'active' })).join('')
       : '<div class="makerspace-empty">No active print requests.</div>';
 
     if (historyEl) {
       historyEl.innerHTML = history.length
-        ? history.map(item => buildRequestMarkup(item, { history: true, scope: 'history' })).join('')
+        ? history.map((item) => buildRequestMarkup(item, { history: true, scope: 'history' })).join('')
         : '<div class="makerspace-empty">No print history yet.</div>';
     }
   }
@@ -343,7 +406,6 @@
       el.hidden = !shouldShow;
     });
 
-    // Role-gated UI (e.g. admin-only create-admin panel)
     document.querySelectorAll('[data-role]').forEach((el) => {
       const requiredRole = el.dataset.role;
       const shouldShow = !!(user && user.role === requiredRole);
@@ -406,11 +468,20 @@
     return /^19\d{5}$/.test(schoolId);
   }
 
+  function handleApiError(error, alertSelector, fallbackMessage) {
+    const message = (error && error.message) || fallbackMessage || 'Something went wrong.';
+    if (error && error.code === 'NO_API') {
+      showAlert(alertSelector, 'The makerspace server is not reachable. Start it with `python3 makerspace_backend/server.py` or check MAKERSPACE_API.', 'error');
+      return;
+    }
+    showAlert(alertSelector, message, 'error');
+  }
+
   function attachSignup() {
     const form = document.getElementById('signupForm');
     if (!form) return;
 
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
       const data = new FormData(form);
@@ -424,7 +495,7 @@
         return;
       }
 
-      if (!isValidStudentEmail(email)) {
+      if (!isValidStudentEmail(email) && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
         showAlert('#signupAlert', 'Use a valid Poway school email ending in @stu.powayusd.com.', 'error');
         return;
       }
@@ -434,31 +505,50 @@
         return;
       }
 
-      const state = readState();
-      if (state.users.some(user => user.email.toLowerCase() === email.toLowerCase())) {
-        showAlert('#signupAlert', 'An account with that email already exists.', 'error');
+      if (password.length < 4) {
+        showAlert('#signupAlert', 'Password must be at least 4 characters.', 'error');
         return;
       }
 
-      if (state.users.some(user => user.schoolId.toLowerCase() === schoolId.toLowerCase())) {
-        showAlert('#signupAlert', 'That school ID is already in use.', 'error');
+      if (!API_BASE) {
+        // Offline/local fallback: previous browser-only behavior
+        const state = readState();
+        if (state.users.some((user) => user.email.toLowerCase() === email.toLowerCase())) {
+          showAlert('#signupAlert', 'An account with that email already exists.', 'error');
+          return;
+        }
+        if (state.users.some((user) => (user.schoolId || '').toLowerCase() === schoolId.toLowerCase())) {
+          showAlert('#signupAlert', 'That school ID is already in use.', 'error');
+          return;
+        }
+        const user = {
+          id: `user-${Date.now()}`,
+          name,
+          email,
+          schoolId,
+          password,
+          role: email.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 'admin' : 'member'
+        };
+        state.users.push(user);
+        state.session = { email: user.email, role: user.role, name: user.name };
+        writeState(state);
+        showAlert('#signupAlert', 'Account created on this device only (shared server offline). Redirecting...', 'success');
+        setTimeout(() => { window.location.href = msUrl('/requests'); }, 700);
         return;
       }
 
-      const user = {
-        id: `user-${Date.now()}`,
-        name,
-        email,
-        schoolId,
-        password,
-        role: email === ADMIN_EMAIL ? 'admin' : 'member'
-      };
-
-      state.users.push(user);
-      state.session = { email: user.email, role: user.role, name: user.name };
-      writeState(state);
-      showAlert('#signupAlert', 'Account created. Redirecting to your request dashboard...', 'success');
-      setTimeout(() => { window.location.href = msUrl('/requests'); }, 700);
+      try {
+        const data2 = await apiFetch('/api/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, schoolId, password })
+        });
+        setSessionToken(data2.token);
+        applyApiPayload(data2);
+        showAlert('#signupAlert', 'Account created. Redirecting to your request dashboard...', 'success');
+        setTimeout(() => { window.location.href = msUrl('/requests'); }, 700);
+      } catch (error) {
+        handleApiError(error, '#signupAlert', 'Unable to create account.');
+      }
     });
   }
 
@@ -466,7 +556,7 @@
     const form = document.getElementById('signinForm');
     if (!form) return;
 
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
       const data = new FormData(form);
@@ -487,117 +577,39 @@
         return;
       }
 
-      const state = readState();
-      const user = state.users.find(item => item.email.toLowerCase() === email.toLowerCase() && item.password === password);
-
-      if (!user) {
-        showAlert('#signinAlert', 'Incorrect email or password.', 'error');
+      if (!API_BASE) {
+        const state = readState();
+        const user = state.users.find(
+          (item) => item.email.toLowerCase() === email.toLowerCase() && item.password === password
+        );
+        if (!user) {
+          showAlert('#signinAlert', 'Incorrect email or password.', 'error');
+          return;
+        }
+        state.session = { email: user.email, role: user.role, name: user.name };
+        writeState(state);
+        updateSignedInState();
+        initializeWelcome();
+        showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
+        setTimeout(() => { window.location.href = msUrl('/requests'); }, 600);
         return;
       }
 
-      state.session = { email: user.email, role: user.role, name: user.name };
-      writeState(state);
-      showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
-      updateSignedInState();
-      setTimeout(() => { window.location.href = msUrl('/requests'); }, 600);
+      try {
+        const result = await apiFetch('/api/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+        setSessionToken(result.token);
+        applyApiPayload(result);
+        updateSignedInState();
+        initializeWelcome();
+        showAlert('#signinAlert', 'Welcome back! Redirecting...', 'success');
+        setTimeout(() => { window.location.href = msUrl('/requests'); }, 600);
+      } catch (error) {
+        handleApiError(error, '#signinAlert', 'Unable to sign in.');
+      }
     });
-  }
-
-  const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
-
-  function defaultInventory() {
-    return [
-      { id: 'inv-pla-orange', name: 'Orange PLA basic', material: 'PLA' },
-      { id: 'inv-pla-black', name: 'Black PLA basic', material: 'PLA' },
-      { id: 'inv-pla-white', name: 'White PLA basic', material: 'PLA' },
-      { id: 'inv-petg-clear', name: 'Clear PETG', material: 'PETG' },
-      { id: 'inv-petg-black', name: 'Black PETG', material: 'PETG' },
-      { id: 'inv-silk-gold', name: 'Gold SILK+', material: 'SILK+' },
-      { id: 'inv-silk-silver', name: 'Silver SILK+', material: 'SILK+' }
-    ];
-  }
-
-  const DEMO_STUDENT_EMAIL = 'teststudent@stu.powayusd.com';
-  const DEMO_STUDENT_ID = 'demo-request-1';
-
-  function demoStudentUser() {
-    return {
-      id: 'demo-student-1',
-      name: 'Test Student',
-      email: DEMO_STUDENT_EMAIL,
-      schoolId: '1999999',
-      password: 'test1234',
-      role: 'member'
-    };
-  }
-
-  function demoActiveRequest() {
-    return {
-      id: DEMO_STUDENT_ID,
-      name: 'Test Student',
-      email: DEMO_STUDENT_EMAIL,
-      projectName: 'Robotics Gear Mount',
-      material: 'PLA',
-      color: 'Orange PLA basic',
-      dimensions: 'See uploaded file',
-      description: 'Mount plate for the FTC gear assembly. Keep walls 3 mm thick. Size is in the STL (about 80 x 40 x 12 mm).',
-      deadline: 'Flexible',
-      fileName: 'gear-mount-v2.stl',
-      status: 'Pending',
-      createdAt: Date.now() - 1000 * 60 * 42
-    };
-  }
-
-  function demoChatForRequest(request) {
-    const t = Date.now() - 1000 * 60 * 40;
-    return {
-      id: `chat-${request.id}`,
-      requestId: request.id,
-      participants: [DEMO_STUDENT_EMAIL, ADMIN_EMAIL],
-      messages: [
-        {
-          sender: 'Test Student',
-          senderEmail: DEMO_STUDENT_EMAIL,
-          text: 'Hi! I submitted a gear mount for robotics. Can you check if PLA Orange works for this?',
-          ts: t
-        },
-        {
-          sender: 'Makerspace',
-          senderEmail: ADMIN_EMAIL,
-          text: 'Looks good — Orange PLA basic should work. Before we print, I’ll confirm the price here. Rough estimate is about $4–$6 depending on infill.',
-          ts: t + 1000 * 60 * 8
-        },
-        {
-          sender: 'Test Student',
-          senderEmail: DEMO_STUDENT_EMAIL,
-          text: 'That works for me. Thanks!',
-          ts: t + 1000 * 60 * 12
-        }
-      ]
-    };
-  }
-
-  function ensureDemoChatSeed(state) {
-    if (state.seededDemoChat) return state;
-
-    const student = demoStudentUser();
-    if (!state.users.some((user) => user.email === DEMO_STUDENT_EMAIL)) {
-      state.users.push(student);
-    }
-
-    const request = demoActiveRequest();
-    if (!state.requests.some((item) => item.id === DEMO_STUDENT_ID)) {
-      state.requests.unshift(request);
-    }
-
-    const existing = (state.chats || []).find((chat) => chat.requestId === DEMO_STUDENT_ID);
-    if (!existing) {
-      state.chats = state.chats || [];
-      state.chats.unshift(demoChatForRequest(request));
-    }
-
-    state.seededDemoChat = true;
-    return state;
   }
 
   function inventoryForMaterial(state, material) {
@@ -675,7 +687,6 @@
       user.name,
       user.email,
       user.schoolId,
-      user.password,
       user.role
     ];
     return fields.some((value) => (value || '').toString().toLowerCase().includes(q));
@@ -759,7 +770,7 @@
             </div>
             <div>
               <dt>Password</dt>
-              <dd>${escapeHtml(item.password || '—')}</dd>
+              <dd>${item.password ? escapeHtml(item.password) : '••••••••'}</dd>
             </div>
             <div>
               <dt>Requests</dt>
@@ -820,6 +831,14 @@
     renderMemberList(input ? input.value.trim() : '');
   }
 
+  function memberPanelAlert(deleteBtn, message, type) {
+    const panel = deleteBtn.closest('.member-panel');
+    const alertEl = panel ? panel.querySelector('.member-panel-alert') : null;
+    if (!alertEl) return;
+    alertEl.textContent = message;
+    alertEl.className = `member-panel-alert alert show ${type || 'error'}`;
+  }
+
   function attachMemberSearch() {
     const input = document.getElementById('memberSearch');
     if (!input) return;
@@ -828,7 +847,7 @@
       renderMemberList(input.value.trim());
     });
 
-    document.addEventListener('click', function (event) {
+    document.addEventListener('click', async function (event) {
       if (!isAdminActor()) return;
 
       const toggle = event.target.closest('[data-member-toggle]');
@@ -844,43 +863,44 @@
         const email = (deleteBtn.dataset.memberDelete || '').toLowerCase();
         if (!email) return;
 
-        const state = readState();
-        const target = state.users.find((item) => (item.email || '').toLowerCase() === email);
-        if (!target) return;
-
-        // Never delete the primary seeded admin
         if (email === ADMIN_EMAIL.toLowerCase()) {
-          const panel = deleteBtn.closest('.member-panel');
-          const alertEl = panel ? panel.querySelector('.member-panel-alert') : null;
-          if (alertEl) {
-            alertEl.textContent = 'The primary admin account cannot be deleted.';
-            alertEl.className = 'member-panel-alert alert show error';
-          }
+          memberPanelAlert(deleteBtn, 'The primary admin account cannot be deleted.', 'error');
           return;
         }
 
-        if (!window.confirm(`Delete account ${target.email}? This cannot be undone.`)) return;
+        if (!window.confirm(`Delete account ${email}? This cannot be undone.`)) return;
 
-        state.users = state.users.filter((item) => (item.email || '').toLowerCase() !== email);
-        // Clear session if this was the signed-in user
-        if (state.session && (state.session.email || '').toLowerCase() === email) {
-          state.session = null;
+        if (!API_BASE) {
+          const state = readState();
+          state.users = state.users.filter((item) => (item.email || '').toLowerCase() !== email);
+          if (state.session && (state.session.email || '').toLowerCase() === email) {
+            state.session = null;
+          }
+          if (openMemberEmail.toLowerCase() === email) openMemberEmail = '';
+          writeState(state);
+          updateSignedInState();
+          refreshMemberListFromSearch();
+          renderRequestLists();
+          renderAdminRequests();
+          return;
         }
-        if (openMemberEmail.toLowerCase() === email) openMemberEmail = '';
-        writeState(state);
-        updateSignedInState();
-        refreshMemberListFromSearch();
-        renderRequestLists();
-        renderAdminRequests();
+
+        try {
+          const result = await apiFetch(`/api/members/${encodeURIComponent(email)}`, { method: 'DELETE' });
+          applyApiPayload(result);
+          if (openMemberEmail.toLowerCase() === email) openMemberEmail = '';
+          updateSignedInState();
+          refreshMemberListFromSearch();
+          renderRequestLists();
+          renderAdminRequests();
+        } catch (error) {
+          memberPanelAlert(deleteBtn, (error && error.message) || 'Unable to delete account.', 'error');
+        }
         return;
       }
-
-      const editForm = event.target.closest('[data-member-edit]');
-      // handled on submit below
-      void editForm;
     });
 
-    document.addEventListener('submit', function (event) {
+    document.addEventListener('submit', async function (event) {
       const form = event.target.closest('[data-member-edit]');
       if (!form) return;
       event.preventDefault();
@@ -919,71 +939,83 @@
         return;
       }
 
-      const state = readState();
-      const target = state.users.find((item) => (item.email || '').toLowerCase() === originalEmail);
-      if (!target) {
-        fail('Account not found. It may have been deleted.');
-        return;
-      }
-
-      const emailTaken = state.users.some((item) => {
-        const other = (item.email || '').toLowerCase();
-        return other === email.toLowerCase() && other !== originalEmail;
-      });
-      if (emailTaken) {
-        fail('Another account already uses that email.');
-        return;
-      }
-
-      const idTaken = state.users.some((item) => {
-        const otherId = (item.schoolId || '').toLowerCase();
-        return otherId === schoolId.toLowerCase() && (item.email || '').toLowerCase() !== originalEmail;
-      });
-      if (idTaken) {
-        fail('That school ID is already in use.');
-        return;
-      }
-
-      const oldEmail = target.email;
-      const previousRole = target.role || 'member';
-      target.email = email;
-      target.schoolId = schoolId;
-      target.password = password;
-      target.role = role;
-
-      // Keep session, requests, and chats consistent after email changes
-      if (state.session && (state.session.email || '').toLowerCase() === originalEmail) {
-        state.session.email = email;
-        state.session.role = role;
-      }
-      state.requests = (state.requests || []).map((item) => {
-        if ((item.email || '').toLowerCase() === originalEmail) {
-          return { ...item, email };
+      if (!API_BASE) {
+        const state = readState();
+        const target = state.users.find((item) => (item.email || '').toLowerCase() === originalEmail);
+        if (!target) {
+          fail('Account not found. It may have been deleted.');
+          return;
         }
-        return item;
-      });
-      state.chats = (state.chats || []).map((chat) => {
-        const participants = (chat.participants || []).map((p) => {
-          if ((p || '').toLowerCase() === originalEmail) return email;
-          return p;
+        const emailTaken = state.users.some((item) => {
+          const other = (item.email || '').toLowerCase();
+          return other === email.toLowerCase() && other !== originalEmail;
         });
-        return {
-          ...chat,
-          participants: Array.from(new Set([...participants, email, ADMIN_EMAIL]))
-        };
-      });
+        if (emailTaken) {
+          fail('Another account already uses that email.');
+          return;
+        }
+        const idTaken = state.users.some((item) => {
+          const otherId = (item.schoolId || '').toLowerCase();
+          return otherId === schoolId.toLowerCase() && (item.email || '').toLowerCase() !== originalEmail;
+        });
+        if (idTaken) {
+          fail('That school ID is already in use.');
+          return;
+        }
+        target.email = email;
+        target.schoolId = schoolId;
+        target.password = password;
+        target.role = originalEmail === ADMIN_EMAIL.toLowerCase() ? 'admin' : role;
+        if (state.session && (state.session.email || '').toLowerCase() === originalEmail) {
+          state.session.email = email;
+          state.session.role = target.role;
+        }
+        state.requests = (state.requests || []).map((item) => {
+          if ((item.email || '').toLowerCase() === originalEmail) return { ...item, email };
+          return item;
+        });
+        state.chats = (state.chats || []).map((chat) => {
+          const participants = (chat.participants || []).map((p) => {
+            if ((p || '').toLowerCase() === originalEmail) return email;
+            return p;
+          });
+          return {
+            ...chat,
+            participants: Array.from(new Set([...participants, email, ADMIN_EMAIL]))
+          };
+        });
+        writeState(state);
+        openMemberEmail = email;
+        updateSignedInState();
+        refreshMemberListFromSearch();
+        renderRequestLists();
+        renderAdminRequests();
+        const roleNote = target.role === 'admin' ? ' Role updated to admin.' : ' Role updated to member.';
+        ok(`Saved changes for ${email}.${roleNote}`);
+        return;
+      }
 
-      writeState(state);
-      openMemberEmail = email;
-      updateSignedInState();
-      refreshMemberListFromSearch();
-      renderAdminRequests();
-      const roleNote = previousRole === role
-        ? ''
-        : role === 'admin'
-          ? ' Role updated to admin.'
-          : ' Role updated to member.';
-      ok(`Saved changes for ${email}.${roleNote}`);
+      try {
+        const result = await apiFetch(`/api/members/${encodeURIComponent(originalEmail)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ email, schoolId, password, role })
+        });
+        applyApiPayload(result);
+        openMemberEmail = email;
+        updateSignedInState();
+        refreshMemberListFromSearch();
+        renderRequestLists();
+        renderAdminRequests();
+        const nextRole = result.user && result.user.role === 'admin' ? 'admin' : 'member';
+        const roleNote = nextRole === role
+          ? ''
+          : role === 'admin'
+            ? ' Role updated to admin.'
+            : ' Role updated to member.';
+        ok(`Saved changes for ${email}.${roleNote}`);
+      } catch (error) {
+        fail((error && error.message) || 'Unable to save member changes.');
+      }
     });
   }
 
@@ -996,7 +1028,7 @@
   function attachInventoryForm() {
     const form = document.getElementById('inventoryForm');
     if (form) {
-      form.addEventListener('submit', function (event) {
+      form.addEventListener('submit', async function (event) {
         event.preventDefault();
 
         const actor = currentUser();
@@ -1019,32 +1051,48 @@
           return;
         }
 
-        const state = readState();
-        state.inventory = state.inventory || [];
-        const duplicate = state.inventory.some(
-          (item) => item.name.toLowerCase() === name.toLowerCase() && item.material === material
-        );
-        if (duplicate) {
-          showAlert('#inventoryAlert', 'That color is already listed for this material.', 'error');
+        if (!API_BASE) {
+          const state = readState();
+          state.inventory = state.inventory || [];
+          const duplicate = state.inventory.some(
+            (item) => item.name.toLowerCase() === name.toLowerCase() && item.material === material
+          );
+          if (duplicate) {
+            showAlert('#inventoryAlert', 'That color is already listed for this material.', 'error');
+            return;
+          }
+          state.inventory.push({
+            id: `inv-${Date.now()}`,
+            name,
+            material,
+            createdBy: actor.email,
+            createdAt: Date.now()
+          });
+          writeState(state);
+          form.reset();
+          renderInventoryList();
+          refreshColorOptionsFromForm();
+          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory on this device only (shared server offline).`, 'success');
           return;
         }
 
-        state.inventory.push({
-          id: `inv-${Date.now()}`,
-          name,
-          material,
-          createdBy: actor.email,
-          createdAt: Date.now()
-        });
-        writeState(state);
-        form.reset();
-        renderInventoryList();
-        refreshColorOptionsFromForm();
-        showAlert('#inventoryAlert', `Added ${name} to ${material} inventory.`, 'success');
+        try {
+          const result = await apiFetch('/api/inventory', {
+            method: 'POST',
+            body: JSON.stringify({ name, material })
+          });
+          applyApiPayload(result);
+          form.reset();
+          renderInventoryList();
+          refreshColorOptionsFromForm();
+          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory.`, 'success');
+        } catch (error) {
+          handleApiError(error, '#inventoryAlert', 'Unable to add inventory.');
+        }
       });
     }
 
-    document.addEventListener('click', function (event) {
+    document.addEventListener('click', async function (event) {
       const target = event.target.closest('[data-inventory-delete]');
       if (!target) return;
 
@@ -1052,15 +1100,29 @@
       if (!actor || actor.role !== 'admin') return;
 
       const id = target.dataset.inventoryDelete;
-      const state = readState();
-      const before = (state.inventory || []).length;
-      state.inventory = (state.inventory || []).filter((item) => item.id !== id);
-      if (state.inventory.length === before) return;
+      if (!id) return;
 
-      writeState(state);
-      renderInventoryList();
-      refreshColorOptionsFromForm();
-      showAlert('#inventoryAlert', 'Inventory item removed.', 'success');
+      if (!API_BASE) {
+        const state = readState();
+        const before = (state.inventory || []).length;
+        state.inventory = (state.inventory || []).filter((item) => item.id !== id);
+        if (state.inventory.length === before) return;
+        writeState(state);
+        renderInventoryList();
+        refreshColorOptionsFromForm();
+        showAlert('#inventoryAlert', 'Inventory item removed on this device only (shared server offline).', 'success');
+        return;
+      }
+
+      try {
+        const result = await apiFetch(`/api/inventory/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        applyApiPayload(result);
+        renderInventoryList();
+        refreshColorOptionsFromForm();
+        showAlert('#inventoryAlert', 'Inventory item removed.', 'success');
+      } catch (error) {
+        handleApiError(error, '#inventoryAlert', 'Unable to remove inventory item.');
+      }
     });
   }
 
@@ -1079,7 +1141,7 @@
       });
     }
 
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
       const user = currentUser();
@@ -1133,64 +1195,92 @@
         return;
       }
 
-      const request = {
-        id: `request-${Date.now()}`,
-        name: user.name,
-        email: user.email,
-        projectName,
-        material,
-        color,
-        dimensions: 'See uploaded file',
-        description,
-        deadline: deadline || 'Flexible',
-        fileName,
-        status: 'Pending',
-        createdAt: Date.now()
-      };
+      if (!API_BASE) {
+        const request = {
+          id: `request-${Date.now()}`,
+          name: user.name,
+          email: user.email,
+          projectName,
+          material,
+          color,
+          dimensions: 'See uploaded file',
+          description,
+          deadline: deadline || 'Flexible',
+          fileName,
+          status: 'Pending',
+          createdAt: Date.now()
+        };
+        state.requests.unshift(request);
+        state.chats = state.chats || [];
+        state.chats.unshift({
+          id: `chat-${request.id}`,
+          requestId: request.id,
+          participants: withAdminParticipants(state, [user.email]),
+          messages: [
+            {
+              sender: user.name,
+              senderEmail: user.email,
+              text: 'Request created. Waiting for admin review.',
+              ts: Date.now()
+            },
+            {
+              sender: 'Makerspace',
+              senderEmail: ADMIN_EMAIL,
+              text: 'Thanks! Once we review this request, we’ll message you here to confirm the price before printing begins.',
+              ts: Date.now()
+            }
+          ]
+        });
+        writeState(state);
+        form.reset();
+        refreshColorOptionsFromForm();
+        renderRequestLists();
+        renderAdminRequests();
+        showAlert('#requestAlert', 'Request saved on this device only (shared server offline). Start the makerspace API to sync across computers.', 'success');
+        setTimeout(() => {
+          openChatForRequest(request.id, true);
+        }, 80);
+        return;
+      }
 
-      state.requests.unshift(request);
-      state.chats = state.chats || [];
-      state.chats.unshift({
-        id: `chat-${request.id}`,
-        requestId: request.id,
-        participants: withAdminParticipants(state, [user.email]),
-        messages: [
-          {
-            sender: user.name,
-            senderEmail: user.email,
-            text: 'Request created. Waiting for admin review.',
-            ts: Date.now()
-          },
-          {
-            sender: 'Makerspace',
-            senderEmail: ADMIN_EMAIL,
-            text: 'Thanks! Once we review this request, we’ll message you here to confirm the price before printing begins.',
-            ts: Date.now()
-          }
-        ]
-      });
-      writeState(state);
-      form.reset();
-      refreshColorOptionsFromForm();
-      renderRequestLists();
-      renderAdminRequests();
-      showAlert('#requestAlert', 'Your request has been submitted. Check the print request chat — we’ll confirm the price before printing begins.', 'success');
-
-      // Open the admin chat for the new request
-      setTimeout(() => {
-        openChatForRequest(request.id, true);
-        const chatArea = document.querySelector(`[data-chat-area="${request.id}"]:not([hidden])`);
-        if (chatArea) chatArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 80);
+      try {
+        const result = await apiFetch('/api/requests', {
+          method: 'POST',
+          body: JSON.stringify({
+            projectName,
+            material,
+            color,
+            description,
+            deadline: deadline || 'Flexible',
+            fileName
+          })
+        });
+        applyApiPayload(result);
+        form.reset();
+        refreshColorOptionsFromForm();
+        renderRequestLists();
+        renderAdminRequests();
+        showAlert('#requestAlert', 'Your request has been submitted. Check the print request chat — we’ll confirm the price before printing begins.', 'success');
+        const requestId = result.request && result.request.id;
+        if (requestId) {
+          setTimeout(() => {
+            openChatForRequest(requestId, true);
+            const chatArea = document.querySelector(`[data-chat-area="${requestId}"]:not([hidden])`);
+            if (chatArea) chatArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 80);
+        }
+      } catch (error) {
+        handleApiError(error, '#requestAlert', 'Unable to submit print request.');
+      }
     });
   }
 
   function attachSignout() {
-    document.addEventListener('click', function (event) {
+    document.addEventListener('click', async function (event) {
       const button = event.target.closest('[data-signout]');
       if (!button) return;
       event.preventDefault();
-      clearSession();
+      await clearSession();
       window.location.href = msUrl('/signout');
     });
   }
@@ -1206,7 +1296,7 @@
       return;
     }
 
-    const messagesHtml = (chat.messages || []).map(m => `
+    const messagesHtml = (chat.messages || []).map((m) => `
       <div class="chat-message ${m.senderEmail === user.email ? 'mine' : 'theirs'}">
         <div class="chat-meta"><strong>${escapeHtml(m.sender)}</strong> <span class="chat-ts">${new Date(m.ts).toLocaleString()}</span></div>
         <div class="chat-text">${escapeHtml(m.text)}</div>
@@ -1234,7 +1324,7 @@
     });
   }
 
-  function openChatForRequest(requestId, forceOpen) {
+  async function openChatForRequest(requestId, forceOpen) {
     const areas = Array.from(document.querySelectorAll(`[data-chat-area="${requestId}"]`));
     if (!areas.length) return;
 
@@ -1246,7 +1336,7 @@
     }
 
     const state = readState();
-    const request = state.requests.find(item => item.id === requestId);
+    const request = state.requests.find((item) => item.id === requestId);
     if (request && !canViewRequest(request, user)) {
       areas.forEach((area) => {
         area.innerHTML = '<div class="makerspace-empty">You do not have access to this request.</div>';
@@ -1255,7 +1345,17 @@
       return;
     }
 
-    if (request) ensureChatForRequest(request, user);
+    if (API_BASE) {
+      try {
+        const result = await apiFetch(`/api/chats/${encodeURIComponent(requestId)}`);
+        if (result.chat) {
+          const chats = (readState().chats || []).filter((c) => c.requestId !== requestId);
+          writeState({ ...readState(), chats: [result.chat, ...chats] });
+        }
+      } catch (error) {
+        // Chat may not exist yet; message send will create it server-side.
+      }
+    }
 
     areas.forEach((area) => {
       const isOpen = !area.hasAttribute('hidden');
@@ -1278,7 +1378,6 @@
         return;
       }
 
-      // Clicking a request card opens the admin chat
       const card = ev.target.closest('[data-request-card]');
       if (!card) return;
       if (ev.target.closest('a, button, input, textarea, select, label, form, .chat-area')) return;
@@ -1293,7 +1392,7 @@
       openChatForRequest(card.dataset.requestId, true);
     });
 
-    document.addEventListener('submit', function (ev) {
+    document.addEventListener('submit', async function (ev) {
       const form = ev.target.closest('.chatForm');
       if (!form) return;
       ev.preventDefault();
@@ -1310,44 +1409,50 @@
       }
 
       const state = readState();
-      const request = state.requests.find(item => item.id === requestId);
+      const request = state.requests.find((item) => item.id === requestId);
       if (!request || !canViewRequest(request, user)) {
         showAlert('#requestAlert', 'Unable to send message for this request.', 'error');
         return;
       }
 
-      state.chats = state.chats || [];
-      let chat = state.chats.find(c => c.requestId === requestId);
-      if (!chat) {
-        chat = {
-          id: `chat-${request.id}`,
-          requestId: request.id,
-          participants: withAdminParticipants(state, [request.email, user.email]),
-          messages: []
-        };
-        state.chats.unshift(chat);
+      if (!API_BASE) {
+        state.chats = state.chats || [];
+        let chat = state.chats.find((c) => c.requestId === requestId);
+        if (!chat) {
+          chat = {
+            id: `chat-${request.id}`,
+            requestId: request.id,
+            participants: withAdminParticipants(state, [request.email, user.email]),
+            messages: []
+          };
+          state.chats.unshift(chat);
+        }
+        chat.messages.push({ sender: user.name, senderEmail: user.email, text, ts: Date.now() });
+        chat.participants = withAdminParticipants(state, [
+          ...(chat.participants || []),
+          request.email,
+          user.email
+        ]);
+        writeState(state);
+        renderChat(requestId);
+        return;
       }
 
-      chat.messages.push({ sender: user.name, senderEmail: user.email, text, ts: Date.now() });
-      chat.participants = withAdminParticipants(state, [
-        ...(chat.participants || []),
-        request.email,
-        user.email
-      ]);
-      writeState(state);
-      renderChat(requestId);
+      try {
+        const result = await apiFetch(`/api/chats/${encodeURIComponent(requestId)}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ text })
+        });
+        applyApiPayload(result);
+        renderChat(requestId);
+      } catch (error) {
+        showAlert('#requestAlert', (error && error.message) || 'Unable to send message.', 'error');
+      }
     });
   }
 
   function attachAdminActions() {
-    const STATUS_CHAT_NOTES = {
-      accepted: 'Request accepted. We’re moving ahead with the print.',
-      completed: 'Print marked completed. It’s now in your print history.',
-      closed: 'Request closed. It’s now in your print history.',
-      rejected: 'Request rejected. We won’t print this job.'
-    };
-
-    document.addEventListener('click', function (event) {
+    document.addEventListener('click', async function (event) {
       const target = event.target.closest('[data-action]');
       if (!target) return;
 
@@ -1358,64 +1463,81 @@
       const user = currentUser();
       if (!user || user.role !== 'admin') return;
 
-      const state = readState();
-      const request = state.requests.find(item => item.id === requestId);
-      if (!request) return;
+      if (!API_BASE) {
+        const state = readState();
+        const request = state.requests.find((item) => item.id === requestId);
+        if (!request) return;
 
-      const normalized = normalizeStatus(request.status);
-      let noteKey = null;
+        const normalized = normalizeStatus(request.status);
+        const STATUS_CHAT_NOTES = {
+          accepted: 'Request accepted. We’re moving ahead with the print.',
+          completed: 'Print marked completed. It’s now in your print history.',
+          closed: 'Request closed. It’s now in your print history.',
+          rejected: 'Request rejected. We won’t print this job.'
+        };
+        let noteKey = null;
 
-      // Accept pending jobs
-      if (action === 'accept' || action === 'approve') {
-        if (normalized !== 'pending') return;
-        request.status = 'Approved';
-        noteKey = 'accepted';
-      } else if (action === 'complete') {
-        // Finish an accepted job → history
-        if (normalized !== 'approved') return;
-        request.status = 'Completed';
-        noteKey = 'completed';
-      } else if (action === 'close') {
-        // Close open jobs without requiring completion → history
-        if (normalized !== 'pending' && normalized !== 'approved') return;
-        request.status = 'Closed';
-        noteKey = 'closed';
-      } else if (action === 'reject') {
-        if (normalized !== 'pending' && normalized !== 'approved') return;
-        request.status = 'Rejected';
-        noteKey = 'rejected';
-      } else {
+        if (action === 'accept' || action === 'approve') {
+          if (normalized !== 'pending') return;
+          request.status = 'Approved';
+          noteKey = 'accepted';
+        } else if (action === 'complete') {
+          if (normalized !== 'approved') return;
+          request.status = 'Completed';
+          noteKey = 'completed';
+        } else if (action === 'close') {
+          if (normalized !== 'pending' && normalized !== 'approved') return;
+          request.status = 'Closed';
+          noteKey = 'closed';
+        } else if (action === 'reject') {
+          if (normalized !== 'pending' && normalized !== 'approved') return;
+          request.status = 'Rejected';
+          noteKey = 'rejected';
+        } else {
+          return;
+        }
+
+        state.chats = state.chats || [];
+        let chat = state.chats.find((c) => c.requestId === requestId);
+        if (!chat) {
+          chat = {
+            id: `chat-${request.id}`,
+            requestId: request.id,
+            participants: withAdminParticipants(state, [request.email, user.email]),
+            messages: []
+          };
+          state.chats.unshift(chat);
+        }
+        chat.messages.push({
+          sender: user.name,
+          senderEmail: user.email,
+          text: `${request.projectName || 'Request'} status → ${request.status}. ${STATUS_CHAT_NOTES[noteKey] || ''}`.trim(),
+          ts: Date.now()
+        });
+        chat.participants = withAdminParticipants(state, [
+          ...(chat.participants || []),
+          request.email,
+          user.email
+        ]);
+        writeState(state);
+        renderAdminRequests();
+        renderRequestLists();
+        renderChat(requestId);
         return;
       }
 
-      // Log status change in the request chat
-      state.chats = state.chats || [];
-      let chat = state.chats.find(c => c.requestId === requestId);
-      if (!chat) {
-        chat = {
-          id: `chat-${request.id}`,
-          requestId: request.id,
-          participants: withAdminParticipants(state, [request.email, user.email]),
-          messages: []
-        };
-        state.chats.unshift(chat);
+      try {
+        const result = await apiFetch(`/api/requests/${encodeURIComponent(requestId)}/status`, {
+          method: 'POST',
+          body: JSON.stringify({ action })
+        });
+        applyApiPayload(result);
+        renderAdminRequests();
+        renderRequestLists();
+        renderChat(requestId);
+      } catch (error) {
+        console.warn('Status update failed', error);
       }
-      chat.messages.push({
-        sender: user.name,
-        senderEmail: user.email,
-        text: `${request.projectName || 'Request'} status → ${request.status}. ${STATUS_CHAT_NOTES[noteKey] || ''}`.trim(),
-        ts: Date.now()
-      });
-      chat.participants = withAdminParticipants(state, [
-        ...(chat.participants || []),
-        request.email,
-        user.email
-      ]);
-
-      writeState(state);
-      renderAdminRequests();
-      renderRequestLists();
-      renderChat(requestId);
     });
   }
 
@@ -1423,7 +1545,7 @@
     const form = document.getElementById('adminCreateForm');
     if (!form) return;
 
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
 
       const actor = currentUser();
@@ -1443,7 +1565,7 @@
         return;
       }
 
-      if (!isValidStudentEmail(email)) {
+      if (!isValidStudentEmail(email) && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
         showAlert('#adminCreateAlert', 'Use a valid Poway school email ending in @stu.powayusd.com.', 'error');
         return;
       }
@@ -1458,37 +1580,49 @@
         return;
       }
 
-      const state = readState();
-      if (state.users.some(user => user.email.toLowerCase() === email.toLowerCase())) {
-        showAlert('#adminCreateAlert', 'An account with that email already exists.', 'error');
+      if (!API_BASE) {
+        const state = readState();
+        if (state.users.some((user) => user.email.toLowerCase() === email.toLowerCase())) {
+          showAlert('#adminCreateAlert', 'An account with that email already exists.', 'error');
+          return;
+        }
+        if (state.users.some((user) => (user.schoolId || '').toLowerCase() === schoolId.toLowerCase())) {
+          showAlert('#adminCreateAlert', 'That school ID is already in use.', 'error');
+          return;
+        }
+        const newAdmin = {
+          id: `admin-${Date.now()}`,
+          name,
+          email,
+          schoolId,
+          password,
+          role: 'admin',
+          createdBy: actor.email
+        };
+        state.users.push(newAdmin);
+        state.chats = (state.chats || []).map((chat) => ({
+          ...chat,
+          participants: Array.from(new Set([...(chat.participants || []), newAdmin.email]))
+        }));
+        writeState(state);
+        form.reset();
+        showAlert('#adminCreateAlert', `Admin account created on this device only (shared server offline) for ${name}.`, 'success');
+        renderMemberList((document.getElementById('memberSearch') || {}).value || '');
         return;
       }
 
-      if (state.users.some(user => (user.schoolId || '').toLowerCase() === schoolId.toLowerCase())) {
-        showAlert('#adminCreateAlert', 'That school ID is already in use.', 'error');
-        return;
+      try {
+        const result = await apiFetch('/api/members', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, schoolId, password })
+        });
+        applyApiPayload(result);
+        form.reset();
+        showAlert('#adminCreateAlert', `Admin account created for ${name}. They can sign in with ${email}.`, 'success');
+        renderMemberList((document.getElementById('memberSearch') || {}).value || '');
+      } catch (error) {
+        handleApiError(error, '#adminCreateAlert', 'Unable to create admin account.');
       }
-
-      const newAdmin = {
-        id: `admin-${Date.now()}`,
-        name,
-        email,
-        schoolId,
-        password,
-        role: 'admin',
-        createdBy: actor.email
-      };
-
-      state.users.push(newAdmin);
-      // Existing chats stay visible to every admin
-      state.chats = (state.chats || []).map((chat) => ({
-        ...chat,
-        participants: Array.from(new Set([...(chat.participants || []), newAdmin.email]))
-      }));
-      writeState(state);
-      form.reset();
-      showAlert('#adminCreateAlert', `Admin account created for ${name}. They can sign in with ${email}.`, 'success');
-      renderMemberList((document.getElementById('memberSearch') || {}).value || '');
     });
   }
 
@@ -1499,12 +1633,18 @@
     welcome.textContent = user ? `Welcome back, ${user.name}` : 'Sign in to start printing';
   }
 
-  function init() {
-    // Ensure demo chat seed is written even on first paint
-    writeState(readState());
-    attachNavToggle();
+  function renderAll() {
     updateSignedInState();
     initializeWelcome();
+    renderRequestLists();
+    renderAdminRequests();
+    renderInventoryList();
+    renderMemberList((document.getElementById('memberSearch') || {}).value || '');
+    populateColorOptions('PLA');
+  }
+
+  async function init() {
+    attachNavToggle();
     attachSignup();
     attachSignin();
     attachRequestForm();
@@ -1514,11 +1654,19 @@
     attachInventoryForm();
     attachMemberSearch();
     attachChatHandlers();
-    renderRequestLists();
-    renderAdminRequests();
-    renderInventoryList();
-    renderMemberList('');
-    populateColorOptions('PLA');
+
+    // Paint immediately from cache, then hydrate from the shared API.
+    renderAll();
+    await hydrateFromApi();
+    renderAll();
+
+    // Light poll so open request/admin pages pick up other devices' chats.
+    if (API_BASE && (document.getElementById('requestList') || document.getElementById('adminRequestList'))) {
+      setInterval(async function () {
+        const ok = await hydrateFromApi();
+        if (ok) renderAll();
+      }, 20000);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

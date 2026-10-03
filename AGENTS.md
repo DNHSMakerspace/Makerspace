@@ -65,6 +65,7 @@ while preserving all critical instructions. The agent must still communicate wit
 * 以 [Makefile](Makefile) 为唯一指令来源；常用目标 `make`/`make serve-current`、`make dev`、`make stop`、`make convert`、`make convert-single`（细节见 [README.md](README.md)）。
 * 顺序很关键：stop → build projects → convert notebooks/docx → split courses → jekyll serve（以 [Makefile](Makefile) 为准）。
 * 项目构建后必须运行 [SASS 导入生成器](scripts/generate_sass_imports.py)，以创建 `_sass/projects/_all.scss`；`build-registered-projects` 负责此依赖，避免 Jekyll 的 `projects/all` 导入失败。
+* **Makerspace-only 发布：** 当前 `_config.yml` 的 `exclude` 会屏蔽非 makerspace 页面/资源（navigation、courses、games 等），公开站点只生成 makerspace 页面。若要恢复全站，必须同步调整 `exclude` 与 `minima.nav_pages`，不要只删 makerspace 页。
 
 ### Makerspace 页面（Del Norte Makerspace）
 
@@ -87,7 +88,8 @@ while preserving all critical instructions. The agent must still communicate wit
 
 ### 后端边界
 
-* 后端服务位于 [node_backend/README.md](node_backend/README.md)，与站点构建流程分离；改动前先阅读该文档。
+* Makerspace 共享后端：[makerspace_backend/README.md](makerspace_backend/README.md)（`python3 makerspace_backend/server.py`，默认 `:8787`，数据在 `makerspace_backend/data/db.json`）。账号/聊天/库存/打印请求以该 API 为真相源；浏览器 `localStorage` 只是缓存。生产必须在 `_config.yml` 设置 `makerspace_api` 为已部署 API 的公网地址。`make makerspace-api` / `make makerspace-api-stop`。
+* 其它后端服务位于 [node_backend/README.md](node_backend/README.md)，与站点构建流程分离；改动前先阅读该文档。
 
 ## 编码标准
 

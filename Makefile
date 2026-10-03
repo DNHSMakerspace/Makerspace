@@ -2,6 +2,8 @@ HOST ?= localhost
 PORT ?= 4500
 LOG_FILE = /tmp/jekyll$(PORT).log
 PYTHON := venv/bin/python3
+MAKERSPACE_API_PORT ?= 8787
+MAKERSPACE_API_LOG = /tmp/makerspace-api.log
 
 SHELL = /bin/bash -c
 .SHELLFLAGS = -e
@@ -32,7 +34,8 @@ KNOWN_TARGETS := \
 	generate-makefiles build-project-includes build-registered-projects build-registered-docs build-dev-projects \
 	watch-registered-projects clean-registered-projects watch-dev-projects \
 	list-projects split-courses clean-courses clean-generated-makefiles use-minima use-cayman use-yat \
-	use-so-simple use-hydejack watch-rebuild
+	use-so-simple use-hydejack watch-rebuild \
+	makerspace-api makerspace-api-stop
 
 ###########################################
 # Capture ORIGINAL CLI Goals
@@ -383,6 +386,7 @@ stop:
 	@@ps aux | grep "make -C _projects" | grep -v grep | awk '{print $$2}' | xargs kill >/dev/null 2>&1 || true
 	@rm -f $(LOG_FILE) /tmp/.notebook_watch_marker /tmp/.project_watch_marker /tmp/.jekyll_regenerating /tmp/.jekyll_rebuild_trigger /tmp/.jekyll_rebuild_done /tmp/.jekyll_rebuild_log
 	@rm -f /tmp/.project_*_marker 2>/dev/null || true
+	@$(MAKE) makerspace-api-stop
 
 reload:
 	@make stop
@@ -553,6 +557,24 @@ preview-docx: clean-docx convert-docx
 	@echo "Converting DOCX and starting preview server..."
 	@make serve-current
 
+# Shared makerspace API (auth, chats, inventory, requests across devices)
+makerspace-api:
+	@echo "Starting makerspace API on port $(MAKERSPACE_API_PORT)..."
+	@mkdir -p makerspace_backend/data
+	@MAKERSPACE_API_PORT=$(MAKERSPACE_API_PORT) python3 makerspace_backend/server.py > "$(MAKERSPACE_API_LOG)" 2>&1 & echo $$! > /tmp/makerspace-api.pid
+	@sleep 0.4
+	@echo "Makerspace API pid $$(cat /tmp/makerspace-api.pid) · log $(MAKERSPACE_API_LOG)"
+	@echo "Local site will use http://localhost:$(MAKERSPACE_API_PORT)"
+
+makerspace-api-stop:
+	@if [ -f /tmp/makerspace-api.pid ]; then \
+		kill $$(cat /tmp/makerspace-api.pid) 2>/dev/null || true; \
+		rm -f /tmp/makerspace-api.pid; \
+		echo "Stopped makerspace API"; \
+	else \
+		echo "No makerspace API pid file"; \
+	fi
+
 help:
 	@echo "Available Makefile commands:"
 	@echo ""
@@ -583,12 +605,16 @@ help:
 	@echo "  make reload       - Stop and restart server"
 	@echo "  make refresh      - Stop, clean, and restart server"
 	@echo ""
+	@echo "Makerspace API:"
+	@echo "  make makerspace-api       - Start shared makerspace API (port $(MAKERSPACE_API_PORT))"
+	@echo "  make makerspace-api-stop  - Stop makerspace API"
+	@echo ""
 	@echo "Conversion Commands:"
 	@echo "  make convert        - Convert notebooks and DOCX files"
 	@echo "  make convert-docx   - Convert DOCX files only"
 	@echo "  make split-courses  - Split multi-course files automatically"
 	@echo "  make docx-only      - Convert DOCX and prepare for preview"
-	@echo "  make preview-docx   - Clean, convert DOCX, and serve"
+	@echo "  make preview-docx   - Clean, convert, DOCX, and serve"
 	@echo ""
 	@echo "Cleanup Commands:"
 	@echo "  make clean          - Remove all generated files"

@@ -12,10 +12,12 @@ layout: null
   <link rel="icon" type="image/png" sizes="32x32" href="{{ '/favicon-32x32.png' | relative_url }}?v=ms3d1">
   <link rel="alternate icon" href="{{ '/favicon.ico' | relative_url }}?v=ms3d1">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ '/apple-touch-icon.png' | relative_url }}?v=ms3d1">
-  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms11">
+  <link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms12">
   <script>
     // Injected so JS redirects always respect site.baseurl (never drops a path prefix).
     window.MAKERSPACE_BASE = {{ site.baseurl | jsonify }};
+    // Shared makerspace API (empty → localhost auto-detect in makerspace.js).
+    window.MAKERSPACE_API = {{ site.makerspace_api | default: '' | jsonify }};
   </script>
 </head>
 <body class="makerspace-body">
@@ -47,6 +49,6 @@ layout: null
     </footer>
   </div>
 
-  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms11"></script>
+  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms12"></script>
 </body>
 </html>
