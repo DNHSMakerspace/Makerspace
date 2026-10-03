@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Nel Norte Makerspace
+title: Del Norte Makerspace
 permalink: /
 ---
 
@@ -11,7 +11,7 @@ permalink: /
     <div class="makerspace-topbar-inner">
       <a class="makerspace-brand" href="{{ '/' | relative_url }}">
         <span class="makerspace-brand-mark">3D</span>
-        <span>Nel Norte Makerspace</span>
+        <span>Del Norte Makerspace</span>
       </a>
 
       <nav class="makerspace-nav" aria-label="Main navigation">
@@ -23,48 +23,78 @@ permalink: /
     </div>
   </header>
 
-  <main class="makerspace-hero">
-    <div class="makerspace-panel hero-copy">
-      <span class="eyebrow">Student-made ideas</span>
-      <h1>Turn classroom ideas into real objects.</h1>
-      <p>
-        Nel Norte High School Makerspace helps students design, prototype, and 3D print projects for STEM classes,
-        clubs, and creative problem-solving challenges.
-      </p>
+  <main class="makerspace-home">
+    <section class="makerspace-hero">
+      <div class="makerspace-panel hero-copy">
+        <span class="eyebrow">Student innovation</span>
+        <h1>Build what the classroom needs.</h1>
+        <p>
+          Del Norte Makerspace gives students a place to design, prototype, and create with support from teachers,
+          club leaders, and fellow makers.
+        </p>
 
-      <div class="hero-actions">
-        <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Join the club</a>
-        <a class="makerspace-link-button" href="{{ '/requests' | relative_url }}">Submit a request</a>
+        <div class="hero-actions">
+          <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Join the club</a>
+          <a class="makerspace-link-button" href="{{ '/requests' | relative_url }}">Submit a request</a>
+        </div>
       </div>
 
-      <div class="hero-stats">
-        <div class="stat-pill">
-          <strong>240+</strong>
-          <span>Prints finished</span>
-        </div>
-        <div class="stat-pill">
-          <strong>18</strong>
-          <span>Student makers</span>
-        </div>
-        <div class="stat-pill">
-          <strong>4.8/5</strong>
-          <span>Print quality</span>
+      <div class="makerspace-panel hero-aside">
+        <div class="mini-label">Club quick info</div>
+        <div class="info-stack">
+          <div>
+            <span>Open</span>
+            <strong>Tue / Thu after school</strong>
+          </div>
+          <div>
+            <span>Focus</span>
+            <strong>3D design, prototyping, and problem-solving</strong>
+          </div>
+          <div>
+            <span>Support</span>
+            <strong>Student-led project reviews and printing help</strong>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="makerspace-panel hero-visual">
-      <div class="print-card">
-        <div class="print-card-header">
-          <strong>Printer Queue</strong>
-          <span class="status-dot" aria-label="Printer online"></span>
+    <section class="makerspace-services">
+      <div class="section-header">
+        <h2>What we offer</h2>
+      </div>
+
+      <div class="content-grid">
+        <article class="makerspace-panel info-card">
+          <span class="eyebrow">Design support</span>
+          <h3>Prototype ideas</h3>
+          <p>Turn rough concepts into printable designs with guidance from club leaders and student mentors.</p>
+        </article>
+
+        <article class="makerspace-panel info-card">
+          <span class="eyebrow">Club access</span>
+          <h3>Print projects</h3>
+          <p>Request school-safe builds for classes, clubs, competitions, and creative problem-solving challenges.</p>
+        </article>
+
+        <article class="makerspace-panel info-card">
+          <span class="eyebrow">Safety first</span>
+          <h3>Responsible creation</h3>
+          <p>Each request is reviewed for practicality, safety, and school-appropriate use before printing.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="makerspace-cta">
+      <div class="cta-panel">
+        <div>
+          <span class="eyebrow">Next step</span>
+          <h3>Ready to make something?</h3>
         </div>
-        <div class="print-display">
-          <div class="model"><span>Model</span><span>MiniBot v3</span></div>
-          <div class="cube"><div class="cube-shape"></div></div>
-          <div class="model"><span>Progress</span><span>82%</span></div>
+        <div class="cta-actions">
+          <a class="makerspace-button" href="{{ '/signup' | relative_url }}">Create account</a>
+          <a class="makerspace-link-button dark" href="{{ '/requests' | relative_url }}">View requests</a>
         </div>
       </div>
-    </div>
+    </section>
   </main>
 </div>

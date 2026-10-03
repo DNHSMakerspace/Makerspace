@@ -18,7 +18,7 @@ permalink: /signup
         </label>
         <label class="field">
           School email
-          <input type="email" name="email" placeholder="jsmith@stu.powayusd.com" required>
+          <input type="email" name="email" placeholder="jsmith@stu.powayusd.com" required pattern="^[^@\s]+@stu\.powayusd\.com$" title="Use your Poway school email ending in @stu.powayusd.com">
         </label>
         <label class="field">
           School ID

@@ -14,7 +14,7 @@ permalink: /signin
       <div class="form-grid">
         <label class="field field-full">
           School email
-          <input type="email" name="email" placeholder="student@nelnorte.org" required>
+          <input type="email" name="email" placeholder="student@stu.powayusd.com" required pattern="^[^@\s]+@stu\.powayusd\.com$" title="Use your school email ending in @stu.powayusd.com">
         </label>
         <label class="field field-full">
           Password

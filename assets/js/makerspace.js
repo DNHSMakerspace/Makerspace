@@ -1,6 +1,6 @@
 (function () {
   const STORAGE_KEY = 'makerspace-demo-state';
-  const ADMIN_EMAIL = 'admin@nelnorte.org';
+  const ADMIN_EMAIL = 'admin@stu.powayusd.com';
 
   function defaultState() {
     return {
@@ -9,7 +9,7 @@
           id: 'admin-1',
           name: 'Makerspace Admin',
           email: ADMIN_EMAIL,
-          schoolId: 'ADMIN-0000',
+          schoolId: '1900001',
           password: 'makerspace-admin',
           role: 'admin'
         }
@@ -162,6 +162,14 @@
     if (adminLink) adminLink.hidden = !(isSignedIn && user && user.role === 'admin');
   }
 
+  function isValidStudentEmail(email) {
+    return /^[^\s@]+@stu\.powayusd\.com$/i.test(email);
+  }
+
+  function isValidSchoolId(schoolId) {
+    return /^19\d{5}$/.test(schoolId);
+  }
+
   function attachSignup() {
     const form = document.getElementById('signupForm');
     if (!form) return;
@@ -180,8 +188,13 @@
         return;
       }
 
-      if (!email.endsWith('@student.nelnorte.org') && !email.endsWith('@nelschools.org') && !email.endsWith('@gmail.com') && !email.includes('nelnorte')) {
-        showAlert('#signupAlert', 'Use a valid school email and include your school ID.', 'error');
+      if (!isValidStudentEmail(email)) {
+        showAlert('#signupAlert', 'Use a valid Poway school email ending in @stu.powayusd.com.', 'error');
+        return;
+      }
+
+      if (!isValidSchoolId(schoolId)) {
+        showAlert('#signupAlert', 'School ID must be 7 digits and start with 19.', 'error');
         return;
       }
 
@@ -223,6 +236,11 @@
       const data = new FormData(form);
       const email = (data.get('email') || '').toString().trim();
       const password = (data.get('password') || '').toString();
+
+      if (!email || !password) {
+        showAlert('#signinAlert', 'Enter both your email and password.', 'error');
+        return;
+      }
 
       const state = readState();
       const user = state.users.find(item => item.email.toLowerCase() === email.toLowerCase() && item.password === password);
