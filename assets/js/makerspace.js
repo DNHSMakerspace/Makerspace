@@ -258,6 +258,68 @@
     return (state.chats || []).find((c) => c.requestId === requestId) || null;
   }
 
+  // Request chat rides OCS Spring (spring-chat.js). Auth/inventory/members stay
+  // on makerspace_backend. localStorage is only a cache/fallback.
+  function springChat() {
+    return (typeof window !== 'undefined' && window.MakerspaceSpringChat) || null;
+  }
+
+  function springChatActive() {
+    const spring = springChat();
+    return !!(spring && spring.isAvailable && spring.isAvailable());
+  }
+
+  function upsertLocalChatMessage(requestId, message) {
+    const state = readState();
+    state.chats = state.chats || [];
+    let chat = state.chats.find((c) => c.requestId === requestId);
+    if (!chat) {
+      const request = (state.requests || []).find((item) => item.id === requestId);
+      chat = {
+        id: `chat-${requestId}`,
+        requestId,
+        participants: withAdminParticipants(state, request ? [request.email] : []),
+        messages: []
+      };
+      state.chats.unshift(chat);
+    }
+    const key = `${message.sender}|${message.ts}|${message.text}`;
+    const exists = (chat.messages || []).some((m) => `${m.sender}|${m.ts}|${m.text}` === key);
+    if (!exists) chat.messages.push(message);
+    writeState(state);
+    return chat;
+  }
+
+  async function loadSpringChatForRequest(requestId) {
+    const spring = springChat();
+    if (!spring) return false;
+    try {
+      const result = await spring.loadMessagesForRequest(requestId);
+      if (!result || !result.ok) return false;
+      (result.messages || []).forEach((m) => {
+        upsertLocalChatMessage(requestId, {
+          sender: m.sender,
+          senderEmail: m.senderEmail || null,
+          text: m.text,
+          ts: m.ts
+        });
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async function ensureSpringChatConnected() {
+    const spring = springChat();
+    if (!spring) return false;
+    try {
+      return !!(await spring.connect());
+    } catch (error) {
+      return false;
+    }
+  }
+
   function adminEmails(state) {
     return (state.users || [])
       .filter((user) => user && user.role === 'admin')
@@ -1285,19 +1347,46 @@
     });
   }
 
+  function springChatSourceLabel() {
+    const spring = springChat();
+    if (spring && spring.isConnected && spring.isConnected()) {
+      return spring.hasHistory && spring.hasHistory()
+        ? 'Live chat via school OCS — syncs across devices.'
+        : 'Live chat via school OCS — new messages sync now (older history may need server access).';
+    }
+    if (spring && spring.status && spring.status() === 'needs-group-id') {
+      return API_BASE
+        ? 'Chat via makerspace server — set makerspace_spring_group_id or deploy the Spring security patch for full OCS chat.'
+        : 'Chat on this device only — OCS group id not configured yet.';
+    }
+    return API_BASE
+      ? 'Chat via makerspace server (OCS chat not connected).'
+      : 'Chat on this device only — shared server offline.';
+  }
+
   function renderChatInArea(area, requestId, user, chat) {
     if (!area) return;
     if (!user) {
       area.innerHTML = '<div class="makerspace-empty">Sign in to chat with admin.</div>';
       return;
     }
-    if (!chat) {
-      area.innerHTML = '<div class="makerspace-empty">No chat available.</div>';
+
+    const sourceLabel = springChatSourceLabel();
+
+    if (!chat || !(chat.messages || []).length) {
+      area.innerHTML = `
+        <div class="makerspace-empty">No messages yet.</div>
+        <p class="request-hint">${escapeHtml(sourceLabel)}</p>
+        <form class="chatForm" data-request-id="${requestId}">
+          <input type="text" name="message" placeholder="${user.role === 'admin' ? 'Message the student...' : 'Message the admin about this print...'}" required />
+          <button type="submit" class="makerspace-action-button">Send</button>
+        </form>
+      `;
       return;
     }
 
     const messagesHtml = (chat.messages || []).map((m) => `
-      <div class="chat-message ${m.senderEmail === user.email ? 'mine' : 'theirs'}">
+      <div class="chat-message ${m.senderEmail === user.email || (!m.senderEmail && m.sender === user.name) ? 'mine' : 'theirs'}">
         <div class="chat-meta"><strong>${escapeHtml(m.sender)}</strong> <span class="chat-ts">${new Date(m.ts).toLocaleString()}</span></div>
         <div class="chat-text">${escapeHtml(m.text)}</div>
       </div>
@@ -1309,6 +1398,7 @@
 
     area.innerHTML = `
       <div class="chat-messages">${messagesHtml}</div>
+      <p class="request-hint">${escapeHtml(sourceLabel)}</p>
       <form class="chatForm" data-request-id="${requestId}">
         <input type="text" name="message" placeholder="${placeholder}" required />
         <button type="submit" class="makerspace-action-button">Send</button>
@@ -1345,7 +1435,13 @@
       return;
     }
 
-    if (API_BASE) {
+    // Primary: OCS Spring chat (live /ws-chat needs no OCS login; history REST may need the security patch).
+    const springLoaded = await loadSpringChatForRequest(requestId);
+    // Always try live connect — WebSocket is public even when history REST is blocked.
+    await ensureSpringChatConnected();
+
+    // Fallback history: makerspace API when Spring history did not load.
+    if (!springLoaded && API_BASE) {
       try {
         const result = await apiFetch(`/api/chats/${encodeURIComponent(requestId)}`);
         if (result.chat) {
@@ -1415,6 +1511,24 @@
         return;
       }
 
+      // Primary: OCS Spring chat — send works without an OCS account once the group id is known.
+      const spring = springChat();
+      if (spring) {
+        await ensureSpringChatConnected();
+        const connected = spring.isConnected && spring.isConnected();
+        if (connected && spring.sendMessage(requestId, text, user.name)) {
+          upsertLocalChatMessage(requestId, {
+            sender: user.name,
+            senderEmail: user.email,
+            text,
+            ts: Date.now()
+          });
+          renderChat(requestId);
+          return;
+        }
+      }
+
+      // Fallback: makerspace API / localStorage.
       if (!API_BASE) {
         state.chats = state.chats || [];
         let chat = state.chats.find((c) => c.requestId === requestId);
@@ -1463,7 +1577,7 @@
       const user = currentUser();
       if (!user || user.role !== 'admin') return;
 
-      if (!API_BASE) {
+      if (!API_BASE && !springChat()) {
         const state = readState();
         const request = state.requests.find((item) => item.id === requestId);
         if (!request) return;
@@ -1527,6 +1641,34 @@
       }
 
       try {
+        // Status note → Spring chat when available (so it syncs across devices).
+        const spring = springChat();
+        if (spring) {
+          const noteMap = {
+            accept: 'Request accepted. We’re moving ahead with the print.',
+            approve: 'Request accepted. We’re moving ahead with the print.',
+            complete: 'Print marked completed. It’s now in your print history.',
+            close: 'Request closed. It’s now in your print history.',
+            reject: 'Request rejected. We won’t print this job.'
+          };
+          const note = noteMap[action];
+          if (note) {
+            const connected = await ensureSpringChatConnected();
+            if (connected) {
+              const req = readState().requests.find((item) => item.id === requestId);
+              const noteText = `${(req && req.projectName) || 'Request'} — ${note}`;
+              if (spring.sendMessage(requestId, noteText, user.name)) {
+                upsertLocalChatMessage(requestId, {
+                  sender: user.name,
+                  senderEmail: user.email,
+                  text: noteText,
+                  ts: Date.now()
+                });
+              }
+            }
+          }
+        }
+
         const result = await apiFetch(`/api/requests/${encodeURIComponent(requestId)}/status`, {
           method: 'POST',
           body: JSON.stringify({ action })
@@ -1655,17 +1797,42 @@
     attachMemberSearch();
     attachChatHandlers();
 
-    // Paint immediately from cache, then hydrate from the shared API.
+    // Paint immediately from cache, then hydrate makerspace API state.
     renderAll();
     await hydrateFromApi();
     renderAll();
 
-    // Light poll so open request/admin pages pick up other devices' chats.
+    // OCS Spring chat: re-render open request chats when live messages arrive.
+    const spring = springChat();
+    if (spring && spring.onMessage) {
+      spring.onMessage(function (event) {
+        if (!event || event.context !== 'sendMessageServer') return;
+        const raw = event.message || '';
+        const match = /^\s*\[\[request:([^\]]+)\]\]\s?/.exec(raw);
+        if (!match) return;
+        const requestId = match[1];
+        const text = raw.replace(/^\s*\[\[request:[^\]]+\]\]\s?/, '');
+        upsertLocalChatMessage(requestId, {
+          sender: event.sender || event.name || 'Unknown',
+          senderEmail: null,
+          text,
+          ts: event.date ? new Date(event.date).getTime() : Date.now()
+        });
+        renderChat(requestId);
+      });
+    }
+
+    // Light poll for makerspace API state (inventory/members/requests).
     if (API_BASE && (document.getElementById('requestList') || document.getElementById('adminRequestList'))) {
       setInterval(async function () {
         const ok = await hydrateFromApi();
         if (ok) renderAll();
       }, 20000);
+    }
+
+    // Best-effort Spring connect on pages that show chat.
+    if (document.getElementById('requestList') || document.getElementById('adminRequestList')) {
+      ensureSpringChatConnected().catch(function () { /* UI already has fallback copy */ });
     }
   }
 

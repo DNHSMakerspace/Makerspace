@@ -22,10 +22,18 @@ github_repo: "makerspace"
 baseurl: ""
 future: true
 
-# Shared makerspace API (auth, chats, inventory, requests across devices).
+# Makerspace API (auth, inventory, members, print requests).
 # Local dev: makerspace_backend/server.py on :8787 (auto-detected on localhost).
 # Production: set the public base URL of your deployed makerspace API here.
 makerspace_api: ""
+
+# OCS Spring for makerspace request chat.
+# /ws-chat is permitAll in Spring — send/receive needs NO OCS account.
+# REST history/group-create needs the security patch in
+# makerspace_backend/spring-makerspace-chat-security.java.txt (then redeploy spring).
+makerspace_spring_api: ""
+# Optional numeric Spring group id for group name "makerspace" (skips REST search).
+makerspace_spring_group_id: ""
 
 # Single source of truth for the Google OAuth client id -- assets/js/api/config.js's
 # GOOGLE_CLIENT_ID and login.md's #g_id_onload data-client_id both pull from this at

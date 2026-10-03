@@ -1,0 +1,45 @@
+// =====================================================================
+// Open-Coding-Society/spring — SecurityConfig.java (Order 1 API chain)
+//
+// Purpose: allow Del Norte Makerspace request chat to work with NO OCS
+// account/session. Live /ws-chat is already permitAll in MvcSecurityConfig.
+// These rules open the REST side (group discovery/create + history).
+//
+// Apply by merging into:
+//   src/main/java/com/open/spring/security/SecurityConfig.java
+// inside authorizeHttpRequests(...), BEFORE the catch-all
+//   .requestMatchers("/api/**").hasAnyAuthority(...)
+// and also mirror the keys in apiEndpointRolePolicy().
+// Then redeploy spring.opencodingsociety.com.
+// =====================================================================
+
+// --- Inside SecurityFilterChain authorizeHttpRequests, insert: ---
+
+/*
+                        // ========== MAKERSPACE REQUEST CHAT (public school demo) ==========
+                        // No OCS account required. Group chat history + discovery for the
+                        // makerspace group (and any other group chat history read).
+                        // WebSocket /ws-chat/** is already permitAll in MvcSecurityConfig.
+                        .requestMatchers(HttpMethod.GET, "/api/groups/search**").permitAll()
+                        .requestMatchers("/api/groups/chat/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/groups").permitAll()
+                        // ==================================================================
+*/
+
+// --- Inside apiEndpointRolePolicy() Map, insert before the "/api/**" default: ---
+
+/*
+        policy.put("GET /api/groups/search**", "permitAll");
+        policy.put("/api/groups/chat/**", "permitAll");
+        policy.put("POST /api/groups", "permitAll");
+*/
+
+// =====================================================================
+// Notes
+// - GroupChatApiController already has membership checks commented out;
+//   only this SecurityFilterChain was blocking unauthenticated REST.
+// - POST /api/groups permitAll lets the makerspace client auto-create the
+//   "makerspace" backbone group on first use (same as announcement_chat).
+// - If you want tighter scope later, replace the POST permitAll with a
+//   dedicated /api/makerspace/groups endpoint that only creates name=makerspace.
+// =====================================================================

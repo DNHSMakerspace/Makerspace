@@ -88,7 +88,8 @@ while preserving all critical instructions. The agent must still communicate wit
 
 ### 后端边界
 
-* Makerspace 共享后端：[makerspace_backend/README.md](makerspace_backend/README.md)（`python3 makerspace_backend/server.py`，默认 `:8787`，数据在 `makerspace_backend/data/db.json`）。账号/聊天/库存/打印请求以该 API 为真相源；浏览器 `localStorage` 只是缓存。生产必须在 `_config.yml` 设置 `makerspace_api` 为已部署 API 的公网地址。`make makerspace-api` / `make makerspace-api-stop`。
+* Makerspace 共享后端：[makerspace_backend/README.md](makerspace_backend/README.md)（`python3 makerspace_backend/server.py`，默认 `:8787`，数据在 `makerspace_backend/data/db.json`）。**账号/库存/成员目录/打印请求状态**以该 API 为真相源；浏览器 `localStorage` 只是缓存。生产必须在 `_config.yml` 设置 `makerspace_api` 为已部署 API 的公网地址。`make makerspace-api` / `make makerspace-api-stop`。
+* **Makerspace 请求聊天走 OCS Spring（无需 OCS 账号即可收发实时消息）：** 适配器 [assets/js/makerspace/spring-chat.js](assets/js/makerspace/spring-chat.js)，与 lesson/announcement chat 同一后端（backbone group `makerspace`，消息带 `[[request:<id>]]` 标记）。`/ws-chat` 在 Spring `MvcSecurityConfig` 中已是 `permitAll`，**发送/接收不依赖 OCS 登录**。REST（`/api/groups/search`、`POST /api/groups`、`/api/groups/chat/**` 历史）仍受 JWT 保护；历史/自动建组需要把 [makerspace_backend/spring-makerspace-chat-security.java.txt](makerspace_backend/spring-makerspace-chat-security.java.txt) 合入 Open-Coding-Society/spring 并重新部署，或配置已知 group id（`_config.yml` 的 `makerspace_spring_group_id`，也可 `localStorage`/`window.MAKERSPACE_SPRING_GROUP_ID`）。`_config.yml` 的 `makerspace_spring_api` 可覆盖（空 → localhost:8585 / `https://spring.opencodingsociety.com`）。Spring 不可用时回退到 makerspace_api/localStorage。`assets/js/api/config.js` 在 makerspace-only 发布中被 exclude，URI 解析在适配器内联，**不要**从 makerspace 页面 import config.js。
 * 其它后端服务位于 [node_backend/README.md](node_backend/README.md)，与站点构建流程分离；改动前先阅读该文档。
 
 ## 编码标准

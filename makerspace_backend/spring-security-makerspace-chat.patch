@@ -1,0 +1,28 @@
+diff --git a/src/main/java/com/open/spring/security/SecurityConfig.java b/src/main/java/com/open/spring/security/SecurityConfig.java
+index 7999739..191c68f 100644
+--- a/src/main/java/com/open/spring/security/SecurityConfig.java
++++ b/src/main/java/com/open/spring/security/SecurityConfig.java
+@@ -168,6 +168,13 @@ public class SecurityConfig {
+                         .requestMatchers(HttpMethod.DELETE, "/api/user-certificates/**").hasAnyAuthority("ROLE_TEACHER", "ROLE_ADMIN")
+                         // =================================================
+ 
++                        // ========== MAKERSPACE REQUEST CHAT (public school demo) ==========
++                        // Del Norte Makerspace request chat — no OCS account required.
++                        // Live /ws-chat/** is already permitAll in MvcSecurityConfig.
++                        // These open group discovery/create + chat history for REST.
++                        .requestMatchers(HttpMethod.GET, "/api/groups/search**").permitAll()
++                        .requestMatchers("/api/groups/chat/**").permitAll()
++                        .requestMatchers(HttpMethod.POST, "/api/groups").permitAll()
+                         // ========== LEGACY API ENDPOINTS (NOW AUTHENTICATED) ==========
+                         // These endpoints now require authenticated roles
+                         .requestMatchers("/api/analytics/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN", "ROLE_TEACHER", "ROLE_STUDENT")
+@@ -264,6 +271,9 @@ public class SecurityConfig {
+         policy.put("/api/leaderboard/**", "permitAll");
+         policy.put("/api/exports/**", "ROLE_ADMIN");
+         policy.put("/api/imports/**", "ROLE_ADMIN");
++        policy.put("GET /api/groups/search**", "permitAll");
++        policy.put("/api/groups/chat/**", "permitAll");
++        policy.put("POST /api/groups", "permitAll");
+         policy.put("/api/**", "ROLE_USER|ROLE_ADMIN|ROLE_TEACHER|ROLE_STUDENT");
+         return Map.copyOf(policy);
+     }

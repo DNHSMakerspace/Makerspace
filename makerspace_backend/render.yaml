@@ -1,0 +1,17 @@
+# Render.com blueprint — Makerspace API
+# After first deploy, copy the service URL into _config.yml:
+#   makerspace_api: "https://<your-service>.onrender.com"
+services:
+  - type: web
+    name: makerspace-api
+    runtime: docker
+    plan: free
+    rootDir: makerspace_backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: MAKERSPACE_API_PORT
+        value: "8787"
+    disk:
+      name: makerspace-data
+      mountPath: /app/data
+      sizeGB: 1
