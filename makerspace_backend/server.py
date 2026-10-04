@@ -403,10 +403,19 @@ def request_topic_id(topic: str) -> str:
     return ""
 
 
-def can_access_topic(state: Dict[str, Any], user: Dict[str, Any], topic: str) -> bool:
+def can_access_topic(
+    state: Dict[str, Any],
+    user: Dict[str, Any],
+    topic: str,
+    *,
+    for_post: bool = False,
+) -> bool:
     if not user:
         return False
     if topic in {INVENTORY_TOPIC, "makerspace-inventory"}:
+        # Anyone signed in can read stock updates; only admins may post.
+        if for_post:
+            return user.get("role") == "admin"
         return True
     request_id = request_topic_id(topic)
     if not request_id:
@@ -551,8 +560,11 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
                 self._send(400, {"error": "Type a message first."})
                 return
             topic = sanitize_topic(body.get("topic") or body.get("topicPath") or INVENTORY_TOPIC) or INVENTORY_TOPIC
-            if not can_access_topic(state, user, topic):
-                self._send(403, {"error": "You do not have access to this chat."})
+            if not can_access_topic(state, user, topic, for_post=True):
+                if topic in {INVENTORY_TOPIC, "makerspace-inventory"}:
+                    self._send(403, {"error": "Only admins can post inventory updates."})
+                else:
+                    self._send(403, {"error": "You do not have access to this chat."})
                 return
             sender = (body.get("sender") or user.get("name") or "Staff").strip() or "Staff"
             content = f"{sender}{UNIT_SEP}{message}"

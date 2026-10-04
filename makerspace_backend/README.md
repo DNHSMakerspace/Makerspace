@@ -49,19 +49,22 @@ Optional fallback: OCS Spring chat (`spring-chat.js`) or this API `/api/chats/*`
 
 **Flask security:** no per-topic ACL — any authenticated guest can read/write any topic. Request chats are school-shared, not private.
 
-### Inventory updates microblog (manual posts)
+### Inventory updates microblog (admin posts + auto stock notes)
 
-The site’s **Inventory updates** panel posts to Flask topic `makerspace-inventory` via this API (server-side Flask call). Same CORS reason as request chats.
+The site’s **Inventory updates** panel reads Flask topic `makerspace-inventory` via this API (server-side Flask call). Same CORS reason as request chats. **Only admins can post** to the inventory topic; any signed-in user can read it.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/api/microblog?topic=makerspace-inventory` | Bearer | Load shared stock-chat messages |
-| POST | `/api/microblog` | Bearer | `{ "message": "...", "topic": "makerspace-inventory" }` |
-| GET/POST | `/api/inventory-feed` | Bearer | Alias (defaults inventory topic) |
+| GET | `/api/microblog?topic=makerspace-inventory` | Bearer | Load shared stock-chat messages (any signed-in user) |
+| POST | `/api/microblog` | Admin | `{ "message": "...", "topic": "makerspace-inventory" }` — non-admins get 403 |
+| GET | `/api/inventory-feed` | Bearer | Alias (defaults inventory topic) |
+| POST | `/api/inventory-feed` | Admin | Alias of microblog POST |
+
+When an admin adds or removes inventory, the client auto-posts a short note: `"<name> was added."` or `"<name> is out of stock."`
 
 Override Flask base with `MAKERSPACE_FLASK_API` (default `https://flask.opencodingsociety.com`).
 
-Topic ACL: any signed-in user can read/post inventory; request topics limited to the request owner or an admin when the request row exists on this API.
+Topic ACL: inventory topics are read-only for non-admins (post is admin-only); request topics limited to the request owner or an admin when the request row exists on this API.
 
 ## Deploy (required for real cross-device inventory/members/status)
 
@@ -93,9 +96,9 @@ Primary admin cannot be deleted. Demo student + one active request/chat are seed
 | GET | `/api/health` | — | Liveness |
 | GET | `/api/state` | optional Bearer | Full state for the signed-in user (inventory always; requests/chats filtered) |
 | GET | `/api/microblog?topic=...` | Bearer | Shared chat / inventory feed (Flask proxy) |
-| POST | `/api/microblog` | Bearer | Post to shared chat / inventory feed |
+| POST | `/api/microblog` | Bearer | Post to shared chat; inventory topic requires admin |
 | GET | `/api/inventory-feed?topic=...` | Bearer | Alias of microblog GET |
-| POST | `/api/inventory-feed` | Bearer | Alias of microblog POST |
+| POST | `/api/inventory-feed` | Admin | Alias of microblog POST (inventory topic) |
 | POST | `/api/auth/signup` | — | Create member account + session |
 | POST | `/api/auth/signin` | — | Sign in |
 | POST | `/api/auth/signout` | Bearer | Drop session token |
@@ -108,7 +111,7 @@ Primary admin cannot be deleted. Demo student + one active request/chat are seed
 | POST | `/api/requests/{id}/status` | Admin | `{ "action": "accept\|complete\|close\|reject" }` |
 | GET | `/api/chats/{requestId}` | Bearer | One request chat |
 | GET | `/api/inventory-feed` | Bearer | Shared inventory microblog messages |
-| POST | `/api/inventory-feed` | Bearer | Post inventory microblog message |
+| POST | `/api/inventory-feed` | Admin | Post inventory microblog message (`<name> was added.` / `<name> is out of stock.`) |
 | POST | `/api/chats/{requestId}/messages` | Bearer | Send chat message |
 | GET/POST | `/api/members` | Admin | List / create admins |
 | PATCH/DELETE | `/api/members/{email}` | Admin | Edit / delete account (`@` may be `%40`-encoded; blank password keeps current) |

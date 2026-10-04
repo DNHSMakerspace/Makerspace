@@ -392,29 +392,11 @@
     return (mb && mb.INVENTORY_TOPIC) || INVENTORY_TOPIC;
   }
 
-  function summarizeInventory(inventory) {
-    const byMaterial = {};
-    (inventory || []).forEach(function (item) {
-      if (!item || !item.name) return;
-      const material = item.material || 'Other';
-      if (!byMaterial[material]) byMaterial[material] = [];
-      byMaterial[material].push(item.name);
-    });
-    const materials = ALLOWED_MATERIALS.concat(
-      Object.keys(byMaterial).filter(function (material) { return !ALLOWED_MATERIALS.includes(material); })
-    );
-    return materials.map(function (material) {
-      const names = byMaterial[material] || [];
-      if (!names.length) return material + ': none';
-      return material + ': ' + names.join(', ');
-    }).join(' | ');
-  }
-
-  function buildInventoryAnnouncement(action, name, material, inventory, actorName) {
-    const verb = action === 'removed' ? 'Removed' : 'Added';
-    const who = actorName || 'Staff';
-    const summary = summarizeInventory(inventory);
-    return 'Inventory ' + verb + ' by ' + who + ': ' + name + ' (' + material + '). Now available — ' + summary;
+  function buildInventoryAnnouncement(action, name) {
+    if (action === 'removed') {
+      return name + ' is out of stock.';
+    }
+    return name + ' was added.';
   }
 
   // Post to the shared Flask inventory topic so localhost admin edits still
@@ -427,14 +409,10 @@
     if (!user) {
       return { ok: false, reason: 'not-signed-in' };
     }
-    const state = readState();
-    const text = buildInventoryAnnouncement(
-      action,
-      item.name,
-      item.material,
-      state.inventory,
-      (actor && actor.name) || user.name
-    );
+    if (user.role !== 'admin') {
+      return { ok: false, reason: 'not-admin' };
+    }
+    const text = buildInventoryAnnouncement(action, item.name);
 
     if (API_BASE) {
       try {
@@ -475,9 +453,12 @@
 
   function inventoryAnnounceLabel(result) {
     if (result && result.ok) {
-      return 'Announcement posted to the shared stock chat.';
+      return 'Posted to the shared stock chat.';
     }
     if (!result) return 'Announcement skipped.';
+    if (result.reason === 'not-admin') {
+      return 'Announcement skipped — only admins can post inventory updates.';
+    }
     if (result.reason === 'not-signed-in') {
       return 'Announcement skipped — sign in with your makerspace account first.';
     }
@@ -535,12 +516,14 @@
     if (!container) return;
 
     const user = currentUser();
+    const isAdmin = !!(user && user.role === 'admin');
     const form = document.getElementById('inventoryFeedForm');
     const input = document.getElementById('inventoryFeedInput');
-    if (form) form.hidden = !user;
+    // Students can read stock updates; only admins get the post form.
+    if (form) form.hidden = !isAdmin;
 
     if (!user) {
-      container.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to read and post inventory updates.</div>';
+      container.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to view inventory updates.</div>';
       setInventoryFeedStatus('');
       return;
     }
@@ -561,7 +544,7 @@
           return;
         }
         if (reason === 'not-signed-in' || reason === 'no-api') {
-          target.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to read and post inventory updates.</div>';
+          target.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to view inventory updates.</div>';
           setInventoryFeedStatus('');
           return;
         }
@@ -573,7 +556,9 @@
         return;
       }
       if (!result.messages || !result.messages.length) {
-        target.innerHTML = '<div class="makerspace-empty">No updates yet. Post the first stock note above.</div>';
+        target.innerHTML = isAdmin
+          ? '<div class="makerspace-empty">No updates yet. Add or remove inventory, or post the first stock note above.</div>'
+          : '<div class="makerspace-empty">No inventory updates yet.</div>';
         return;
       }
       const items = result.messages.slice().reverse().slice(0, 4);
@@ -601,6 +586,9 @@
     const user = currentUser();
     if (!user) {
       return { ok: false, reason: 'not-signed-in' };
+    }
+    if (user.role !== 'admin') {
+      return { ok: false, reason: 'not-admin' };
     }
     const trimmed = String(text || '').trim();
     if (!trimmed) {
@@ -652,14 +640,20 @@
         setInventoryFeedStatus('Sign in first.', 'error');
         return;
       }
+      if (user.role !== 'admin') {
+        setInventoryFeedStatus('Only admins can post inventory updates.', 'error');
+        return;
+      }
 
       const text = input.value;
       const result = await postInventoryUpdate(text);
       if (!result.ok) {
-        if (result.reason === 'not-signed-in') {
+        if (result.reason === 'not-admin') {
+          setInventoryFeedStatus('Only admins can post inventory updates.', 'error');
+        } else if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms26).', 'error');
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms27).', 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
         } else if (result.reason === 'NETWORK') {
@@ -668,7 +662,7 @@
         } else if (result.reason === 'no-api') {
           setInventoryFeedStatus('Shared server not configured — hard-refresh the page, then try again.', 'error');
         } else if (result.reason === 'flask-rejected') {
-          setInventoryFeedStatus('Server rejected the post. Check network / makerspace API, then try again.', 'error');
+          setInventoryFeedStatus('Server rejected the post. Only admins can post inventory updates, or check network / makerspace API.', 'error');
         } else {
           setInventoryFeedStatus('Post failed — check network / makerspace API, then try again.', 'error');
         }
