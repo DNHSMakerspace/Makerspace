@@ -2,6 +2,9 @@
 # Prefer the copy at repo root (render.yaml). This file is kept in sync.
 # After first deploy, copy the service URL into _config.yml:
 #   makerspace_api: "https://<your-service>.onrender.com"
+#
+# Free tier has no disk. Default persistence: encrypted Flask snapshot
+# (setup_remote_db.py --force-backup). Set MAKERSPACE_STATE_SECRET in Render.
 services:
   - type: web
     name: makerspace-api
@@ -14,3 +17,7 @@ services:
     envVars:
       - key: MAKERSPACE_FLASK_API
         value: "https://flask.opencodingsociety.com"
+      # - key: MAKERSPACE_STATE_SECRET
+      #   generateValue: true
+      # - key: MAKERSPACE_DATA_URL
+      #   value: "https://jsonblob.com/api/jsonBlob/YOUR_BLOB_ID"

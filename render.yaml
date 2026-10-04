@@ -6,8 +6,15 @@
 #
 # Free plan notes:
 # - Service sleeps after idle; first request after sleep can take ~30–60s.
-# - Persistent disks are a paid Render feature. Without a disk, data/db.json
-#   resets on redeploy/restart (admin seed still works for re-sign-in).
+# - Persistent disks are a paid Render feature. WITHOUT a durable backend,
+#   data/db.json resets on every redeploy/cold start (members/chats/inventory
+#   fall back to seed). Default fix (school Flask snapshot):
+#     python3 makerspace_backend/setup_remote_db.py --force-backup
+#   then in Render → Environment set:
+#     MAKERSPACE_STATE_SECRET=<long random string>
+#   Optional extra store: MAKERSPACE_DATA_URL=https://jsonblob.com/api/jsonBlob/...
+# - Disable Auto Deploy on the service so routine git pushes do not redeploy
+#   the API (GitHub Pages still updates from the same push).
 services:
   - type: web
     name: makerspace-api
@@ -21,3 +28,9 @@ services:
     envVars:
       - key: MAKERSPACE_FLASK_API
         value: "https://flask.opencodingsociety.com"
+      # REQUIRED in production — encrypts the Flask state snapshot:
+      # - key: MAKERSPACE_STATE_SECRET
+      #   generateValue: true
+      # Optional extra GET/PUT JSON store:
+      # - key: MAKERSPACE_DATA_URL
+      #   value: "https://jsonblob.com/api/jsonBlob/YOUR_BLOB_ID"

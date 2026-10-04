@@ -44,6 +44,26 @@
   let apiHealthy = null;
   let apiStatusKind = ''; // '', 'ok', 'waking', 'blocked'
 
+  // Single student-facing copy when the shared Render API is down or waking up.
+  const SERVER_DOWN_MESSAGE =
+    'The shared makerspace server is offline or still waking up. Please wait about a minute, then try again.';
+  const SERVER_DOWN_HINT =
+    'If it still fails after a minute, tap Retry connection at the top of the page.';
+  const CACHE_BUST = 'ms28';
+  function isServerDownError(error) {
+    if (!error) return false;
+    if (error.code === 'NETWORK') return true;
+    if (error.code === 'NO_API') return false;
+    const raw = (error.message || '') + ' ' + (error.name || '');
+    return /failed to fetch|networkerror|load failed|cannot reach|aborted|timeout|network/i.test(raw);
+  }
+
+  function serverDownMessage(actionLabel) {
+    const what = actionLabel ? `${actionLabel} ` : '';
+    const lowerWhat = what ? what.charAt(0).toLowerCase() + what.slice(1) : '';
+    return `${lowerWhat ? `Sorry — ${lowerWhat}` : ''}${lowerWhat ? "couldn't be completed right now. " : ''}${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`;
+  }
+
   function msBaseUrl() {
     if (typeof window !== 'undefined' && typeof window.MAKERSPACE_BASE === 'string') {
       return window.MAKERSPACE_BASE.replace(/\/$/, '');
@@ -204,7 +224,7 @@
     } catch (error) {
       clearTimeout(timer);
       const err = new Error(
-        'Cannot reach the shared makerspace server. It may be waking up (~30s on first use) — wait a moment and try again.'
+        `${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`
       );
       err.code = 'NETWORK';
       err.cause = error;
@@ -263,7 +283,7 @@
       console.warn('Makerspace API hydrate failed; using local cache.', error);
       const reason = (error && error.code) || 'network';
       if (reason === 'NETWORK') {
-        setApiStatus('waking', 'Shared server unreachable — it may be waking up, or school Wi-Fi is blocking makerspace-api-o7u6.onrender.com.');
+        setApiStatus('waking', `${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`);
       } else {
         setApiStatus('blocked', (error && error.message) || 'Shared server error.');
       }
@@ -290,11 +310,12 @@
       return;
     }
     const server = API_BASE || 'not configured';
+    const title = kind === 'waking' ? 'Shared server offline / waking up' : 'Shared server problem';
     el.innerHTML = `
       <div class="api-status-text">
-        <strong>${kind === 'waking' ? 'Shared server slow / unreachable' : 'Shared server problem'}</strong>
+        <strong>${title}</strong>
         <span>${escapeHtml(message || '')}</span>
-        <span class="api-status-meta">Server: ${escapeHtml(server)}</span>
+        <span class="api-status-meta">Please wait about a minute, then tap Retry. Server: ${escapeHtml(server)}</span>
       </div>
       <button type="button" class="makerspace-action-button api-status-retry" data-api-retry>Retry connection</button>
     `;
@@ -307,7 +328,7 @@
     if (!ok) {
       setApiStatus(
         'waking',
-        'Still unreachable. Wait ~30s after the first visit (Render wakes from sleep), then Retry. If this is school Wi-Fi, try another network.'
+        `${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`
       );
     }
   }
@@ -351,7 +372,22 @@
 
   function showAlert(selector, message, type) {
     const el = document.querySelector(selector);
-    if (!el) return;
+    if (!el) {
+      // No dedicated alert node on this page — still tell the student what happened.
+      const main = document.getElementById('main') || document.querySelector('.makerspace-main') || document.body;
+      let fallback = document.getElementById('msToastAlert');
+      if (!fallback) {
+        fallback = document.createElement('div');
+        fallback.id = 'msToastAlert';
+        fallback.className = 'alert';
+        fallback.setAttribute('role', 'status');
+        fallback.setAttribute('aria-live', 'polite');
+        main.insertBefore(fallback, main.firstChild);
+      }
+      fallback.textContent = message;
+      fallback.className = `alert show ${type || 'error'}`;
+      return;
+    }
     el.textContent = message;
     el.className = `alert show ${type}`;
   }
@@ -465,8 +501,8 @@
     if (result.reason === 'no-api') {
       return 'Announcement skipped — shared server not configured. Hard-refresh the page.';
     }
-    if (result.reason === 'NETWORK') {
-      return 'Announcement failed — shared server unreachable (may be waking up). Tap Retry connection above.';
+    if (result.reason === 'NETWORK' || result.reason === 'network') {
+      return `Announcement failed — ${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`;
     }
     if (result.reason === 'chat-unavailable') {
       return 'Announcement skipped — stock chat script not loaded (hard-refresh the page).';
@@ -533,14 +569,14 @@
       if (!target) return;
       if (!result.ok) {
         const reason = result.reason || '';
-        if (reason === 'NETWORK') {
+        if (reason === 'NETWORK' || reason === 'network') {
           target.innerHTML = `
-            <div class="makerspace-empty">Couldn’t reach the shared stock chat.</div>
-            <p class="request-hint">It may still be waking up, or school Wi-Fi is blocking the makerspace server. Tap Retry connection at the top of the page, wait ~30s, then try again.</p>
+            <div class="makerspace-empty">Couldn’t load inventory updates.</div>
+            <p class="request-hint">${escapeHtml(SERVER_DOWN_MESSAGE)} ${escapeHtml(SERVER_DOWN_HINT)}</p>
             <button type="button" class="makerspace-action-button" data-api-retry>Retry connection</button>
           `;
-          setApiStatus('waking', 'Inventory updates could not load — shared server unreachable.');
-          setInventoryFeedStatus('Server unreachable — tap Retry connection.', 'error');
+          setApiStatus('waking', SERVER_DOWN_MESSAGE);
+          setInventoryFeedStatus('Server offline — wait about a minute, then tap Retry connection.', 'error');
           return;
         }
         if (reason === 'not-signed-in' || reason === 'no-api') {
@@ -653,12 +689,12 @@
         } else if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms27).', 'error');
+          setInventoryFeedStatus(`Chat script missing — hard-refresh (?v=${CACHE_BUST}).`, 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
-        } else if (result.reason === 'NETWORK') {
-          setInventoryFeedStatus('Cannot reach the shared server — tap Retry connection at the top, or wait ~30s and post again.', 'error');
-          setApiStatus('waking', 'Inventory post failed — shared server unreachable.');
+        } else if (result.reason === 'NETWORK' || result.reason === 'network') {
+          setInventoryFeedStatus(`Inventory update not posted — ${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`, 'error');
+          setApiStatus('waking', SERVER_DOWN_MESSAGE);
         } else if (result.reason === 'no-api') {
           setInventoryFeedStatus('Shared server not configured — hard-refresh the page, then try again.', 'error');
         } else if (result.reason === 'flask-rejected') {
@@ -1048,12 +1084,9 @@
       showAlert(alertSelector, 'Shared makerspace server is not configured for this page yet. Hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) and try again.', 'error');
       return;
     }
-    if (error && error.code === 'NETWORK') {
-      showAlert(alertSelector, raw + ' If this is the first visit in a while, wait ~30s and tap Retry connection at the top of the page.', 'error');
-      return;
-    }
-    if (/failed to fetch|networkerror|load failed|cannot reach/i.test(raw)) {
-      showAlert(alertSelector, 'Cannot reach the shared makerspace server. Wait ~30 seconds (it may be waking up), then tap Retry connection at the top of the page.', 'error');
+    if (isServerDownError(error) || /failed to fetch|networkerror|load failed|cannot reach|offline|waking/i.test(raw)) {
+      showAlert(alertSelector, serverDownMessage(''), 'error');
+      if (API_BASE) setApiStatus('waking', SERVER_DOWN_MESSAGE);
       return;
     }
     showAlert(alertSelector, raw, 'error');
@@ -1682,6 +1715,13 @@
           fail('Account not found on the shared server. The list was refreshed — pick an account that still exists.');
           return;
         }
+        if (isServerDownError(error)) {
+          await hydrateFromApi().catch(function () {});
+          refreshMemberListFromSearch();
+          fail(serverDownMessage('Member changes'));
+          setApiStatus('waking', SERVER_DOWN_MESSAGE);
+          return;
+        }
         fail(message);
       }
     });
@@ -2204,8 +2244,8 @@
       // Fallback: makerspace API chats / localStorage.
       if (!API_BASE) {
         if (!directFlaskAllowed()) {
-          showAlert('#requestAlert', 'Cannot send chat — shared makerspace server unreachable. Tap Retry connection at the top, or wait ~30s and try again.', 'error');
-          setApiStatus('waking', 'Chat send failed — shared server unreachable.');
+          showAlert('#requestAlert', serverDownMessage('Chat'), 'error');
+          setApiStatus('waking', SERVER_DOWN_MESSAGE);
           return;
         }
         state.chats = state.chats || [];
@@ -2238,7 +2278,7 @@
         applyApiPayload(result);
         renderChat(requestId);
       } catch (error) {
-        showAlert('#requestAlert', (error && error.message) || 'Unable to send message.', 'error');
+        handleApiError(error, '#requestAlert', 'Unable to send message.');
       }
     });
   }
@@ -2352,6 +2392,14 @@
         renderChat(requestId);
       } catch (error) {
         console.warn('Status update failed', error);
+        const msg = isServerDownError(error)
+          ? serverDownMessage('Request status change')
+          : ((error && error.message) || 'Unable to update request status.');
+        showAlert('#requestAlert', msg, 'error');
+        if (isServerDownError(error)) setApiStatus('waking', SERVER_DOWN_MESSAGE);
+        await hydrateFromApi().catch(function () {});
+        renderAdminRequests();
+        renderRequestLists();
       }
     });
   }

@@ -25,6 +25,7 @@ permalink: /admin/
   </div>
 
   <div class="makerspace-panel form-shell">
+    <div id="requestAlert" class="alert" aria-live="polite"></div>
     <div id="adminRequestList" class="admin-list"></div>
   </div>
 

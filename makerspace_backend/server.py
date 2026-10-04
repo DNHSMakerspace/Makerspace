@@ -10,6 +10,8 @@ Port: 8787 (override with MAKERSPACE_API_PORT)
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import re
@@ -18,10 +20,11 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import zlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "db.json"
 # Render injects $PORT; local default stays 8787.
@@ -30,6 +33,22 @@ HOST = os.environ.get("MAKERSPACE_API_HOST", "0.0.0.0")
 FLASK_BASE = os.environ.get("MAKERSPACE_FLASK_API", "https://flask.opencodingsociety.com").rstrip("/")
 INVENTORY_TOPIC = os.environ.get("MAKERSPACE_INVENTORY_TOPIC", "makerspace-inventory")
 UNIT_SEP = "\u001f"
+# Render free tier has no persistent disk — local data/db.json dies on every
+# redeploy/cold start. Persistence backends (best first on load):
+#   1) MAKERSPACE_DATA_URL — any GET/PUT JSON store (jsonblob, gist raw, etc.)
+#   2) School Flask microblog topic below — encrypted snapshot, no new account
+#   3) Local data/db.json
+#   4) Seed defaults (last resort)
+REMOTE_DATA_URL = os.environ.get("MAKERSPACE_DATA_URL", "").strip()
+REMOTE_TIMEOUT_SEC = float(os.environ.get("MAKERSPACE_DATA_TIMEOUT", "12"))
+STATE_BACKUP_TOPIC = os.environ.get("MAKERSPACE_STATE_TOPIC", "makerspace-state-v1")
+STATE_BACKUP_SENDER = "makerspace-db"
+# Flask microblog rejects content over 280 chars. Leave room for
+# "makerspace-db\u001F DBSNAP <stamp> <i>/<n> " + chunk.
+STATE_BACKUP_CHUNK = int(os.environ.get("MAKERSPACE_STATE_CHUNK", "200"))
+STATE_BACKUP_MIN_INTERVAL_SEC = float(os.environ.get("MAKERSPACE_STATE_BACKUP_INTERVAL", "15"))
+STATE_SECRET = os.environ.get("MAKERSPACE_STATE_SECRET", "del-norte-makerspace-demo")
+_last_state_backup = 0.0
 
 ADMIN_EMAIL = "krishk27411@stu.powayusd.com"
 DEMO_STUDENT_EMAIL = "teststudent@stu.powayusd.com"
@@ -173,33 +192,271 @@ def default_db() -> Dict[str, Any]:
     }
 
 
+def normalize_state(parsed: Dict[str, Any]) -> Dict[str, Any]:
+    state = dict(parsed)
+    state.setdefault("users", [])
+    state.setdefault("requests", [])
+    state.setdefault("chats", [])
+    state.setdefault("inventory", [dict(i) for i in DEFAULT_INVENTORY])
+    state.setdefault("sessions", {})
+    state.setdefault("seeded", True)
+    return state
+
+
+def state_score(state: Dict[str, Any]) -> int:
+    users = len(state.get("users") or [])
+    rest = (
+        len(state.get("requests") or [])
+        + len(state.get("chats") or [])
+        + len(state.get("inventory") or [])
+    )
+    # Prefer richer datasets so a redeployed empty container never beats real data.
+    return users * 1000 + rest
+
+
+def write_local_state(state: Dict[str, Any]) -> None:
+    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = DATA_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(DATA_PATH)
+
+
+def _state_key() -> bytes:
+    return hashlib.sha256((STATE_SECRET or "del-norte-makerspace-demo").encode("utf-8")).digest()
+
+
+def _crypt_bytes(data: bytes, *, decode: bool = False) -> bytes:
+    key = _state_key()
+    if decode:
+        return bytes(data[i] ^ key[i % len(key)] for i in range(len(data)))
+    return bytes(data[i] ^ key[i % len(key)] for i in range(len(data)))
+
+
+def _encode_state_payload(state: Dict[str, Any]) -> str:
+    raw = json.dumps(state, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    compressed = zlib.compress(raw, 9)
+    return base64.b64encode(_crypt_bytes(compressed)).decode("ascii")
+
+
+def _decode_state_payload(encoded: str) -> Dict[str, Any]:
+    compressed = _crypt_bytes(base64.b64decode(encoded.encode("ascii")), decode=True)
+    parsed = json.loads(zlib.decompress(compressed).decode("utf-8"))
+    if not isinstance(parsed, dict):
+        raise ValueError("state snapshot is not an object")
+    return parsed
+
+
+def flask_put_state(state: Dict[str, Any]) -> bool:
+    """Persist an encrypted full-state snapshot on the school Flask server.
+
+    Render free has no disk; Flask microblog storage does. Payload is
+    zlib+XOR+base64 with MAKERSPACE_STATE_SECRET, chunked to Flask's 280-char
+    message limit (topic makerspace-state-v1).
+    """
+    if not FLASK_BASE or not STATE_BACKUP_TOPIC:
+        return False
+    try:
+        encoded = _encode_state_payload(state)
+    except (TypeError, ValueError) as exc:
+        print(f"[makerspace] state serialize failed: {exc}", flush=True)
+        return False
+    stamp = str(now_ms())
+    chunk_size = max(40, STATE_BACKUP_CHUNK)
+    chunks = [encoded[i : i + chunk_size] for i in range(0, len(encoded), chunk_size)] or [""]
+    cookie = flask_guest_cookie(ADMIN_EMAIL)
+    if not cookie:
+        print("[makerspace] state backup skipped — Flask guest auth failed", flush=True)
+        return False
+    total = len(chunks)
+    for index, chunk in enumerate(chunks, start=1):
+        text = f"DBSNAP {stamp} {index}/{total} {chunk}"
+        content = f"{STATE_BACKUP_SENDER}{UNIT_SEP}{text}"
+        status, payload, _ = flask_call(
+            "POST",
+            "/api/microblog",
+            {"content": content, "topicPath": STATE_BACKUP_TOPIC},
+            cookie=cookie,
+        )
+        if status != 200:
+            print(
+                f"[makerspace] state backup chunk {index}/{total} failed status={status} "
+                f"body={payload}",
+                flush=True,
+            )
+            return False
+    print(f"[makerspace] state backup ok chunks={total} bytes={len(encoded)}", flush=True)
+    return True
+
+
+def flask_get_state() -> Optional[Dict[str, Any]]:
+    """Restore the newest complete encrypted state snapshot from Flask."""
+    if not FLASK_BASE or not STATE_BACKUP_TOPIC:
+        return None
+    cookie = flask_guest_cookie(ADMIN_EMAIL)
+    if not cookie:
+        return None
+    status, payload, _ = flask_call(
+        "GET",
+        f"/api/microblog?pagePath={quote(STATE_BACKUP_TOPIC)}",
+        cookie=cookie,
+    )
+    if status != 200:
+        return None
+    messages = parse_microblog_posts(payload)
+    groups: Dict[str, Dict[int, str]] = {}
+    totals: Dict[str, int] = {}
+    for message in messages:
+        if message.get("sender") != STATE_BACKUP_SENDER:
+            continue
+        text = message.get("text") or ""
+        if not text.startswith("DBSNAP "):
+            continue
+        parts = text.split(" ", 3)
+        if len(parts) < 4:
+            continue
+        _, stamp, index_total, chunk = parts
+        if "/" not in index_total:
+            continue
+        index_s, total_s = index_total.split("/", 1)
+        try:
+            index = int(index_s)
+            total = int(total_s)
+        except ValueError:
+            continue
+        groups.setdefault(stamp, {})[index] = chunk
+        totals[stamp] = total
+    complete: List[Tuple[int, str]] = []
+    for stamp, parts in groups.items():
+        total = totals.get(stamp, 0)
+        if total <= 0 or len(parts) != total:
+            continue
+        try:
+            stamp_i = int(stamp)
+        except ValueError:
+            stamp_i = 0
+        complete.append((stamp_i, stamp))
+    # Newest-first; skip snapshots that fail to decode (corrupt/partial topic).
+    for _, stamp in sorted(complete, key=lambda item: item[0], reverse=True):
+        encoded = "".join(groups[stamp][i] for i in range(1, totals[stamp] + 1))
+        try:
+            parsed = _decode_state_payload(encoded)
+        except (ValueError, TypeError, json.JSONDecodeError, zlib.error, OSError) as exc:
+            print(f"[makerspace] state backup decode failed for {stamp}: {exc}", flush=True)
+            continue
+        if not parsed.get("users"):
+            continue
+        return normalize_state(parsed)
+    return None
+
+
+def maybe_flask_backup_state(force: bool = False) -> None:
+    global _last_state_backup
+    if not _db:
+        return
+    now = time.time()
+    if not force and (now - _last_state_backup) < STATE_BACKUP_MIN_INTERVAL_SEC:
+        return
+    _last_state_backup = now
+    flask_put_state(_db)
+
+
+def remote_get_state() -> Optional[Dict[str, Any]]:
+    if not REMOTE_DATA_URL:
+        return None
+    request = urllib.request.Request(
+        REMOTE_DATA_URL,
+        headers={"Accept": "application/json", "User-Agent": "makerspace-api"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=REMOTE_TIMEOUT_SEC) as response:
+            raw = response.read()
+        parsed = json.loads(raw.decode("utf-8"))
+        if isinstance(parsed, dict) and parsed.get("users"):
+            return normalize_state(parsed)
+        return None
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+        print(f"[makerspace] remote load failed: {exc}", flush=True)
+        return None
+
+
+def remote_put_state(state: Dict[str, Any]) -> bool:
+    if not REMOTE_DATA_URL:
+        return False
+    body = json.dumps(state, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        REMOTE_DATA_URL,
+        data=body,
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "makerspace-api",
+        },
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=REMOTE_TIMEOUT_SEC) as response:
+            response.read()
+        return 200 <= response.status < 300
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+        print(f"[makerspace] remote save failed: {exc}", flush=True)
+        return False
+
+
 def load_db() -> Dict[str, Any]:
     global _db
     with _lock:
         if _db:
             return _db
+        candidates: List[Dict[str, Any]] = []
+
+        remote = remote_get_state()
+        if remote is not None:
+            candidates.append(remote)
+
+        flask_state = flask_get_state()
+        if flask_state is not None:
+            candidates.append(flask_state)
+
         if DATA_PATH.exists():
             try:
                 parsed = json.loads(DATA_PATH.read_text(encoding="utf-8"))
                 if isinstance(parsed, dict) and parsed.get("users"):
-                    _db = parsed
-                    _db.setdefault("requests", [])
-                    _db.setdefault("chats", [])
-                    _db.setdefault("inventory", [dict(i) for i in DEFAULT_INVENTORY])
-                    _db.setdefault("sessions", {})
-                    return _db
+                    candidates.append(normalize_state(parsed))
             except (json.JSONDecodeError, OSError):
                 pass
+
+        if candidates:
+            _db = max(candidates, key=state_score)
+            write_local_state(_db)
+            return _db
+
+        # Last resort: seed defaults. Never overwrite a healthy remote/local DB.
         _db = default_db()
         save_db_locked()
         return _db
 
 
 def save_db_locked() -> None:
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = DATA_PATH.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(_db, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(DATA_PATH)
+    write_local_state(_db)
+    if REMOTE_DATA_URL:
+        # Best-effort durable copy — local write already succeeded.
+        remote_put_state(_db)
+    # Flask snapshot backup off the request lock (school server can be slow).
+    snapshot = json.loads(json.dumps(_db, ensure_ascii=False))
+
+    def _backup() -> None:
+        global _last_state_backup
+        current = time.time()
+        if STATE_BACKUP_MIN_INTERVAL_SEC > 0 and (current - _last_state_backup) < STATE_BACKUP_MIN_INTERVAL_SEC:
+            return
+        _last_state_backup = current
+        flask_put_state(snapshot)
+
+    if STATE_BACKUP_MIN_INTERVAL_SEC <= 0:
+        flask_put_state(snapshot)
+    else:
+        threading.Thread(target=_backup, daemon=True).start()
 
 
 def save_db() -> None:
@@ -242,6 +499,9 @@ def ensure_seed_integrity(state: Dict[str, Any]) -> None:
     primary = find_user_by_email(state, ADMIN_EMAIL)
     if primary:
         primary["role"] = "admin"
+        # Restored snapshots may omit passwords — keep the primary admin usable.
+        if not primary.get("password"):
+            primary["password"] = "KrishK"
 
 
 def state_for_user(state: Dict[str, Any], user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -412,6 +672,10 @@ def can_access_topic(
 ) -> bool:
     if not user:
         return False
+    # Encrypted DB snapshots live on Flask but must never be readable/writable
+    # through the public makerspace API (they contain full school state).
+    if topic in {STATE_BACKUP_TOPIC, "makerspace-state-v1"}:
+        return False
     if topic in {INVENTORY_TOPIC, "makerspace-inventory"}:
         # Anyone signed in can read stock updates; only admins may post.
         if for_post:
@@ -505,7 +769,7 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
             return
         status, payload, _ = flask_call(
             "GET",
-            f"/api/microblog?pagePath={urllib.parse.quote(topic)}",
+            f"/api/microblog?pagePath={quote(topic)}",
             cookie=cookie,
         )
         if status != 200:
@@ -639,7 +903,20 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
             user = session_user(state, auth_token(self))
 
             if path == "/api/health":
-                self._send(200, {"ok": True, "service": "makerspace-api"})
+                persistence = "local-seed"
+                if REMOTE_DATA_URL:
+                    persistence = "remote+flask+local"
+                elif STATE_BACKUP_TOPIC:
+                    persistence = "flask+local"
+                self._send(
+                    200,
+                    {
+                        "ok": True,
+                        "service": "makerspace-api",
+                        "persistence": persistence,
+                        "users": len(state.get("users") or []),
+                    },
+                )
                 return
 
             if path == "/api/state":

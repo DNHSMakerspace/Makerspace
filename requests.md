@@ -15,6 +15,8 @@ permalink: /requests/
 </header>
 
 <div class="makerspace-panel form-page wide form-shell">
+  <div id="requestAlert" class="alert" aria-live="polite"></div>
+
   <section class="out-of-stock-panel" id="outOfStockPanel" aria-labelledby="outOfStockTitle">
     <h2 class="out-of-stock-title" id="outOfStockTitle">Out of stock colors</h2>
     <p class="out-of-stock-note" id="outOfStockNote">

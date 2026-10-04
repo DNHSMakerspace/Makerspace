@@ -25,12 +25,40 @@ The site auto-points at `http://localhost:8787` when opened from `localhost` / `
 ## Production (Render)
 
 - Live service: `https://makerspace-api-o7u6.onrender.com`
-- Health: `GET /api/health`
+- Health: `GET /api/health` (includes `persistence` and `users`)
 - Blueprint: repo-root `render.yaml` + `makerspace_backend/render.yaml`
   - `rootDir: makerspace_backend`, `dockerfilePath: ./Dockerfile`, `dockerContext: .`
-- Free tier: cold starts (~30–60s after idle); no persistent disk — `data/db.json` resets on redeploy. Flask chat posts persist on the school server.
-- **Keep-alive:** repo workflow `.github/workflows/keep-render-awake.yml` hits `/api/health` every 10 minutes so the service does not sleep. If school Wi-Fi still drops the first request, the site shows a gold **Retry connection** banner (`#makerspaceApiStatus`).
+- Free tier: cold starts (~30–60s after idle); **no persistent disk** — `data/db.json` dies on every redeploy/cold start unless a durable backend is configured (see below).
+- **Keep-alive:** repo workflow `.github/workflows/keep-render-awake.yml` hits `/api/health` every hour so the service does not sleep. If school Wi-Fi still drops the first request, the site shows a gold **Retry connection** banner (`#makerspaceApiStatus`).
 - After changing `_config.yml` `makerspace_api`, push so GitHub Pages redeploys `window.MAKERSPACE_API`.
+
+### Remote data store (required — otherwise every deploy wipes the DB)
+
+Without a durable backend, pushing code to GitHub (Render Auto Deploy) recreates the container and reseeds: other members disappear, chats/inventory reset.
+
+**Default (zero new accounts):** encrypted snapshot on the school Flask server.
+
+```bash
+# from repo root — pushes makerspace_backend/data/db.json to Flask
+python3 makerspace_backend/setup_remote_db.py --force-backup
+```
+
+Then in Render Dashboard → **makerspace-api** → **Environment**:
+
+1. Set `MAKERSPACE_STATE_SECRET` to a long random string (encrypts the Flask snapshot).
+2. **Disable Auto Deploy** so routine pushes only update GitHub Pages, not the API.
+3. Restart/redeploy the API once.
+
+On boot the server restores from the richest of: `MAKERSPACE_DATA_URL` → Flask snapshot → local `data/db.json` → seed. Every save also writes a new Flask snapshot (throttled) and PUTs `MAKERSPACE_DATA_URL` when set.
+
+Optional extra store (any GET/PUT JSON endpoint, e.g. jsonblob.com — often blocked on school Wi-Fi; create from a hotspot):
+
+```bash
+python3 makerspace_backend/setup_remote_db.py --jsonblob
+# then set MAKERSPACE_DATA_URL=<printed URL> in Render
+```
+
+`GET /api/health` reports `persistence` (`flask+local`, `remote+flask+local`, or `local-seed`). Treat `MAKERSPACE_STATE_SECRET` and `MAKERSPACE_DATA_URL` like passwords.
 
 ## Chat (request chats are real chats)
 
@@ -120,6 +148,7 @@ Auth is a random bearer token returned on signup/signin and stored by the client
 
 ## Notes
 
-- Passwords are stored in the JSON file for this school-demo deployment (same trust model as the previous browser-only demo). Treat `data/db.json` like a credentials file — do not commit it.
-- `data/` is gitignored except `.gitkeep`.
+- Passwords are stored in the JSON file for this school-demo deployment (same trust model as the previous browser-only demo). Treat `data/db.json`, `MAKERSPACE_STATE_SECRET`, and `MAKERSPACE_DATA_URL` like credentials — do not commit either.
+- Flask state snapshots are zlib+XOR+base64 encrypted with `MAKERSPACE_STATE_SECRET` (default demo secret if unset — set a real one in Render), chunked to Flask's 280-char message limit on topic `makerspace-state-v1`.
+- `data/` is gitignored except `.gitkeep`. Render free redeploys wipe it unless Flask backup / `MAKERSPACE_DATA_URL` is configured.
 - Frontend cache key remains `makerspace-demo-state`; the session token key is `makerspace-session-token`.
