@@ -15,6 +15,20 @@ permalink: /requests/
 </header>
 
 <div class="makerspace-panel form-page wide form-shell">
+  <section class="out-of-stock-panel" id="outOfStockPanel" aria-labelledby="outOfStockTitle">
+    <h2 class="out-of-stock-title" id="outOfStockTitle">Out of stock colors</h2>
+    <p class="out-of-stock-note" id="outOfStockNote">
+      These colors aren’t available right now. New requests can only use stocked colors.
+    </p>
+    <div id="outOfStockList" class="out-of-stock-list"></div>
+  </section>
+
+  <section class="inventory-feed-panel" aria-labelledby="inventoryFeedTitle">
+    <h2 class="inventory-feed-title" id="inventoryFeedTitle">Inventory updates</h2>
+    <p class="inventory-feed-note">Staff stock changes posted to the shared makerspace chat.</p>
+    <div id="inventoryFeed" class="inventory-feed"></div>
+  </section>
+
   <div>
     <h3 class="request-subhead">Active requests</h3>
     <div id="requestsEmpty" class="makerspace-empty" hidden></div>

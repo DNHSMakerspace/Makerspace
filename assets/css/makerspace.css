@@ -681,6 +681,131 @@ textarea {
   line-height: 1.55;
 }
 
+.out-of-stock-panel {
+  margin: 18px 0 8px;
+  padding: 14px 16px;
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  border-radius: var(--ms-radius);
+  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
+}
+
+.out-of-stock-title {
+  margin: 0;
+  color: var(--ms-navy);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.out-of-stock-note {
+  margin: 6px 0 0;
+  color: var(--ms-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.out-of-stock-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.out-of-stock-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 10px;
+}
+
+.out-of-stock-material {
+  color: var(--ms-navy);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.out-of-stock-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 35, 24, 0.22);
+  background: #fff;
+  color: #b42318;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.out-of-stock-empty {
+  color: var(--ms-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.inventory-feed-panel {
+  margin: 18px 0 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--ms-line);
+  border-radius: var(--ms-radius);
+  background: #fff;
+}
+
+.inventory-feed-title {
+  margin: 0;
+  color: var(--ms-navy);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.inventory-feed-note {
+  margin: 6px 0 0;
+  color: var(--ms-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.inventory-feed {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inventory-feed-item {
+  padding: 12px 14px;
+  border: 1px solid var(--ms-line-soft);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+}
+
+.inventory-feed-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.inventory-feed-meta strong {
+  color: var(--ms-navy);
+  font-size: 0.9rem;
+}
+
+.inventory-feed-meta span {
+  color: var(--ms-muted);
+  font-size: 0.78rem;
+}
+
+.inventory-feed-item p {
+  margin: 0;
+  color: var(--ms-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
 .inventory-list {
   margin-top: 16px;
   display: flex;

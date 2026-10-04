@@ -258,15 +258,126 @@
     return (state.chats || []).find((c) => c.requestId === requestId) || null;
   }
 
-  // Request chat rides OCS Spring (spring-chat.js). Auth/inventory/members stay
-  // on makerspace_backend. localStorage is only a cache/fallback.
+  // Request chat: Flask microblog first (guest auth, no OCS login).
+  // Auth/inventory/members stay on makerspace_backend. localStorage is only a cache.
+  function microblogChat() {
+    return (typeof window !== 'undefined' && window.MakerspaceMicroblogChat) || null;
+  }
+
+  const INVENTORY_TOPIC = 'makerspace-inventory';
+
+  function inventoryTopic() {
+    const mb = microblogChat();
+    return (mb && mb.INVENTORY_TOPIC) || INVENTORY_TOPIC;
+  }
+
+  function summarizeInventory(inventory) {
+    const byMaterial = {};
+    (inventory || []).forEach(function (item) {
+      if (!item || !item.name) return;
+      const material = item.material || 'Other';
+      if (!byMaterial[material]) byMaterial[material] = [];
+      byMaterial[material].push(item.name);
+    });
+    const materials = ALLOWED_MATERIALS.concat(
+      Object.keys(byMaterial).filter(function (material) { return !ALLOWED_MATERIALS.includes(material); })
+    );
+    return materials.map(function (material) {
+      const names = byMaterial[material] || [];
+      if (!names.length) return material + ': none';
+      return material + ': ' + names.join(', ');
+    }).join(' | ');
+  }
+
+  function buildInventoryAnnouncement(action, name, material, inventory, actorName) {
+    const verb = action === 'removed' ? 'Removed' : 'Added';
+    const who = actorName || 'Staff';
+    const summary = summarizeInventory(inventory);
+    return 'Inventory ' + verb + ' by ' + who + ': ' + name + ' (' + material + '). Now available — ' + summary;
+  }
+
+  // Post to the shared Flask inventory topic so localhost admin edits still
+  // announce where production devices listen (not local-only Flask).
+  async function announceInventoryChange(action, item, actor) {
+    const mb = microblogChat();
+    if (!mb || !mb.sendMessageToTopic || !item) return false;
+    const user = currentUser();
+    if (!user) return false;
+    const state = readState();
+    const text = buildInventoryAnnouncement(
+      action,
+      item.name,
+      item.material,
+      state.inventory,
+      (actor && actor.name) || user.name
+    );
+    try {
+      return await mb.sendMessageToTopic(inventoryTopic(), text, (actor && actor.name) || user.name || 'Inventory', user);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async function loadInventoryAnnouncements() {
+    const mb = microblogChat();
+    if (!mb || !mb.loadMessagesForTopic) return { ok: false, messages: [] };
+    const user = currentUser();
+    if (!user) return { ok: false, messages: [] };
+    try {
+      return await mb.loadMessagesForTopic(inventoryTopic(), user);
+    } catch (error) {
+      return { ok: false, messages: [] };
+    }
+  }
+
+  function renderInventoryFeed() {
+    const container = document.getElementById('inventoryFeed');
+    if (!container) return;
+
+    const user = currentUser();
+    if (!user) {
+      container.innerHTML = '<div class="makerspace-empty">Sign in to see inventory updates from staff.</div>';
+      return;
+    }
+
+    loadInventoryAnnouncements().then(function (result) {
+      const target = document.getElementById('inventoryFeed');
+      if (!target) return;
+      if (!result.ok || !result.messages || !result.messages.length) {
+        target.innerHTML = '<div class="makerspace-empty">No inventory announcements yet.</div>';
+        return;
+      }
+      const items = result.messages.slice().reverse().slice(0, 12);
+      target.innerHTML = items.map(function (message) {
+        const when = message.ts ? new Date(message.ts).toLocaleString() : '';
+        return `
+          <article class="inventory-feed-item">
+            <div class="inventory-feed-meta">
+              <strong>${escapeHtml(message.sender || 'Staff')}</strong>
+              <span>${escapeHtml(when)}</span>
+            </div>
+            <p>${escapeHtml(message.text || '')}</p>
+          </article>
+        `;
+      }).join('');
+    }).catch(function () {
+      const target = document.getElementById('inventoryFeed');
+      if (!target) return;
+      target.innerHTML = '<div class="makerspace-empty">Unable to load inventory announcements right now.</div>';
+    });
+  }
+
   function springChat() {
     return (typeof window !== 'undefined' && window.MakerspaceSpringChat) || null;
   }
 
-  function springChatActive() {
+  function chatBackendLabel() {
+    const mb = microblogChat();
+    if (mb && mb.isAvailable && mb.isAvailable()) return 'chat';
     const spring = springChat();
-    return !!(spring && spring.isAvailable && spring.isAvailable());
+    if (spring && spring.isConnected && spring.isConnected()) return 'spring';
+    if (API_BASE) return 'api';
+    return 'device';
   }
 
   function upsertLocalChatMessage(requestId, message) {
@@ -290,34 +401,72 @@
     return chat;
   }
 
-  async function loadSpringChatForRequest(requestId) {
-    const spring = springChat();
-    if (!spring) return false;
-    try {
-      const result = await spring.loadMessagesForRequest(requestId);
-      if (!result || !result.ok) return false;
-      (result.messages || []).forEach((m) => {
-        upsertLocalChatMessage(requestId, {
-          sender: m.sender,
-          senderEmail: m.senderEmail || null,
-          text: m.text,
-          ts: m.ts
-        });
+  function mergeRemoteChatMessages(requestId, messages) {
+    (messages || []).forEach((m) => {
+      upsertLocalChatMessage(requestId, {
+        sender: m.sender,
+        senderEmail: m.senderEmail || null,
+        text: m.text,
+        ts: m.ts
       });
-      return true;
-    } catch (error) {
-      return false;
-    }
+    });
   }
 
-  async function ensureSpringChatConnected() {
-    const spring = springChat();
-    if (!spring) return false;
-    try {
-      return !!(await spring.connect());
-    } catch (error) {
-      return false;
+  async function loadSharedChatForRequest(requestId) {
+    const user = currentUser();
+    const mb = microblogChat();
+    if (mb && mb.loadMessagesForRequest) {
+      try {
+        const result = await mb.loadMessagesForRequest(requestId, user);
+        if (result && result.ok) {
+          mergeRemoteChatMessages(requestId, result.messages);
+          return true;
+        }
+      } catch (error) { /* fall through */ }
     }
+    const spring = springChat();
+    if (spring && spring.loadMessagesForRequest) {
+      try {
+        const result = await spring.loadMessagesForRequest(requestId);
+        if (result && result.ok) {
+          mergeRemoteChatMessages(requestId, result.messages);
+          return true;
+        }
+      } catch (error) { /* fall through */ }
+    }
+    return false;
+  }
+
+  async function ensureSharedChatReady() {
+    const user = currentUser();
+    let ready = false;
+    const mb = microblogChat();
+    if (mb && mb.ensureGuestAuth) {
+      try {
+        if (await mb.ensureGuestAuth(user)) ready = true;
+      } catch (error) { /* try spring */ }
+    }
+    const spring = springChat();
+    if (spring && spring.connect) {
+      try {
+        if (await spring.connect()) ready = true;
+      } catch (error) { /* already have microblog */ }
+    }
+    return ready;
+  }
+
+  async function sendSharedChatMessage(requestId, text, user) {
+    const mb = microblogChat();
+    if (mb && mb.sendMessage) {
+      try {
+        if (await mb.sendMessage(requestId, text, user.name, user)) return true;
+      } catch (error) { /* fall through */ }
+    }
+    const spring = springChat();
+    if (spring && spring.isConnected && spring.isConnected() && spring.sendMessage) {
+      if (spring.sendMessage(requestId, text, user.name)) return true;
+    }
+    return false;
   }
 
   function adminEmails(state) {
@@ -672,6 +821,65 @@
         handleApiError(error, '#signinAlert', 'Unable to sign in.');
       }
     });
+  }
+
+  function outOfStockByMaterial(state) {
+    const catalog = defaultInventory();
+    const stocked = new Set(
+      (state.inventory || [])
+        .filter((item) => item && item.name)
+        .map((item) => `${item.material || ''}|${item.name}`)
+    );
+    const byMaterial = new Map();
+
+    catalog.forEach((entry) => {
+      const key = `${entry.material || ''}|${entry.name}`;
+      if (stocked.has(key)) return;
+      if (!byMaterial.has(entry.material)) byMaterial.set(entry.material, []);
+      byMaterial.get(entry.material).push(entry.name);
+    });
+
+    ALLOWED_MATERIALS.forEach((material) => {
+      const stockedForMaterial = (state.inventory || []).some(
+        (item) => item && item.material === material && item.name
+      );
+      if (stockedForMaterial) return;
+      const listed = byMaterial.get(material) || [];
+      if (!listed.length) byMaterial.set(material, ['All colors']);
+    });
+
+    return byMaterial;
+  }
+
+  function renderOutOfStockColors() {
+    const panel = document.getElementById('outOfStockPanel');
+    const list = document.getElementById('outOfStockList');
+    const note = document.getElementById('outOfStockNote');
+    if (!panel || !list) return;
+
+    const byMaterial = outOfStockByMaterial(readState());
+    const groups = [...byMaterial.entries()].filter(([, names]) => names && names.length);
+
+    if (!groups.length) {
+      panel.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+
+    panel.hidden = false;
+    if (note && !note.dataset.defaultText) {
+      note.dataset.defaultText = note.textContent.trim();
+    }
+    if (note && note.dataset.defaultText) {
+      note.textContent = note.dataset.defaultText;
+    }
+
+    list.innerHTML = groups.map(([material, names]) => `
+      <div class="out-of-stock-group">
+        <span class="out-of-stock-material">${escapeHtml(material || '')}</span>
+        ${names.map((name) => `<span class="out-of-stock-chip">${escapeHtml(name)}</span>`).join('')}
+      </div>
+    `).join('');
   }
 
   function inventoryForMaterial(state, material) {
@@ -1083,8 +1291,8 @@
 
   function refreshColorOptionsFromForm() {
     const materialSelect = document.getElementById('requestMaterial');
-    const material = materialSelect ? materialSelect.value : 'PLA';
-    populateColorOptions(material);
+    populateColorOptions((materialSelect || {}).value || 'PLA');
+    renderOutOfStockColors();
   }
 
   function attachInventoryForm() {
@@ -1134,7 +1342,9 @@
           form.reset();
           renderInventoryList();
           refreshColorOptionsFromForm();
-          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory on this device only (shared server offline).`, 'success');
+          await announceInventoryChange('added', { name, material }, actor);
+          renderInventoryFeed();
+          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory on this device only (shared server offline). Announcement sent to the shared stock chat.`, 'success');
           return;
         }
 
@@ -1147,7 +1357,9 @@
           form.reset();
           renderInventoryList();
           refreshColorOptionsFromForm();
-          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory.`, 'success');
+          await announceInventoryChange('added', { name, material }, actor);
+          renderInventoryFeed();
+          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory. Announcement posted to the shared stock chat.`, 'success');
         } catch (error) {
           handleApiError(error, '#inventoryAlert', 'Unable to add inventory.');
         }
@@ -1167,21 +1379,31 @@
       if (!API_BASE) {
         const state = readState();
         const before = (state.inventory || []).length;
+        const removed = (state.inventory || []).find((item) => item.id === id) || null;
         state.inventory = (state.inventory || []).filter((item) => item.id !== id);
         if (state.inventory.length === before) return;
         writeState(state);
         renderInventoryList();
         refreshColorOptionsFromForm();
-        showAlert('#inventoryAlert', 'Inventory item removed on this device only (shared server offline).', 'success');
+        if (removed) {
+          await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
+          renderInventoryFeed();
+        }
+        showAlert('#inventoryAlert', 'Inventory item removed on this device only (shared server offline). Announcement sent to the shared stock chat.', 'success');
         return;
       }
 
       try {
+        const removed = (readState().inventory || []).find((item) => item.id === id) || null;
         const result = await apiFetch(`/api/inventory/${encodeURIComponent(id)}`, { method: 'DELETE' });
         applyApiPayload(result);
         renderInventoryList();
         refreshColorOptionsFromForm();
-        showAlert('#inventoryAlert', 'Inventory item removed.', 'success');
+        if (removed) {
+          await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
+          renderInventoryFeed();
+        }
+        showAlert('#inventoryAlert', 'Inventory item removed. Announcement posted to the shared stock chat.', 'success');
       } catch (error) {
         handleApiError(error, '#inventoryAlert', 'Unable to remove inventory item.');
       }
@@ -1348,20 +1570,17 @@
   }
 
   function springChatSourceLabel() {
-    const spring = springChat();
-    if (spring && spring.isConnected && spring.isConnected()) {
-      return spring.hasHistory && spring.hasHistory()
-        ? 'Live chat via school OCS — syncs across devices.'
-        : 'Live chat via school OCS — new messages sync now (older history may need server access).';
+    const backend = chatBackendLabel();
+    if (backend === 'chat') {
+      return 'Live chat via school server — syncs across devices (no OCS login).';
     }
-    if (spring && spring.status && spring.status() === 'needs-group-id') {
-      return API_BASE
-        ? 'Chat via makerspace server — set makerspace_spring_group_id or deploy the Spring security patch for full OCS chat.'
-        : 'Chat on this device only — OCS group id not configured yet.';
+    if (backend === 'spring') {
+      return 'Live chat via school OCS — syncs across devices.';
     }
-    return API_BASE
-      ? 'Chat via makerspace server (OCS chat not connected).'
-      : 'Chat on this device only — shared server offline.';
+    if (backend === 'api') {
+      return 'Chat via makerspace server (shared chat backend offline).';
+    }
+    return 'Chat on this device only — shared server offline.';
   }
 
   function renderChatInArea(area, requestId, user, chat) {
@@ -1435,13 +1654,12 @@
       return;
     }
 
-    // Primary: OCS Spring chat (live /ws-chat needs no OCS login; history REST may need the security patch).
-    const springLoaded = await loadSpringChatForRequest(requestId);
-    // Always try live connect — WebSocket is public even when history REST is blocked.
-    await ensureSpringChatConnected();
+    // Primary: shared chat (Flask microblog guest auth — no OCS login).
+    const sharedLoaded = await loadSharedChatForRequest(requestId);
+    await ensureSharedChatReady();
 
-    // Fallback history: makerspace API when Spring history did not load.
-    if (!springLoaded && API_BASE) {
+    // Fallback history: makerspace API when shared history did not load.
+    if (!sharedLoaded && API_BASE) {
       try {
         const result = await apiFetch(`/api/chats/${encodeURIComponent(requestId)}`);
         if (result.chat) {
@@ -1511,21 +1729,16 @@
         return;
       }
 
-      // Primary: OCS Spring chat — send works without an OCS account once the group id is known.
-      const spring = springChat();
-      if (spring) {
-        await ensureSpringChatConnected();
-        const connected = spring.isConnected && spring.isConnected();
-        if (connected && spring.sendMessage(requestId, text, user.name)) {
-          upsertLocalChatMessage(requestId, {
-            sender: user.name,
-            senderEmail: user.email,
-            text,
-            ts: Date.now()
-          });
-          renderChat(requestId);
-          return;
-        }
+      // Primary: shared chat (Flask microblog, then Spring if connected).
+      if (await sendSharedChatMessage(requestId, text, user)) {
+        upsertLocalChatMessage(requestId, {
+          sender: user.name,
+          senderEmail: user.email,
+          text,
+          ts: Date.now()
+        });
+        renderChat(requestId);
+        return;
       }
 
       // Fallback: makerspace API / localStorage.
@@ -1577,7 +1790,7 @@
       const user = currentUser();
       if (!user || user.role !== 'admin') return;
 
-      if (!API_BASE && !springChat()) {
+      if (!API_BASE && !microblogChat() && !springChat()) {
         const state = readState();
         const request = state.requests.find((item) => item.id === requestId);
         if (!request) return;
@@ -1641,31 +1854,26 @@
       }
 
       try {
-        // Status note → Spring chat when available (so it syncs across devices).
-        const spring = springChat();
-        if (spring) {
-          const noteMap = {
-            accept: 'Request accepted. We’re moving ahead with the print.',
-            approve: 'Request accepted. We’re moving ahead with the print.',
-            complete: 'Print marked completed. It’s now in your print history.',
-            close: 'Request closed. It’s now in your print history.',
-            reject: 'Request rejected. We won’t print this job.'
-          };
-          const note = noteMap[action];
-          if (note) {
-            const connected = await ensureSpringChatConnected();
-            if (connected) {
-              const req = readState().requests.find((item) => item.id === requestId);
-              const noteText = `${(req && req.projectName) || 'Request'} — ${note}`;
-              if (spring.sendMessage(requestId, noteText, user.name)) {
-                upsertLocalChatMessage(requestId, {
-                  sender: user.name,
-                  senderEmail: user.email,
-                  text: noteText,
-                  ts: Date.now()
-                });
-              }
-            }
+        // Status note → shared chat when available (so it syncs across devices).
+        const noteMap = {
+          accept: 'Request accepted. We’re moving ahead with the print.',
+          approve: 'Request accepted. We’re moving ahead with the print.',
+          complete: 'Print marked completed. It’s now in your print history.',
+          close: 'Request closed. It’s now in your print history.',
+          reject: 'Request rejected. We won’t print this job.'
+        };
+        const note = noteMap[action];
+        if (note) {
+          await ensureSharedChatReady();
+          const req = readState().requests.find((item) => item.id === requestId);
+          const noteText = `${(req && req.projectName) || 'Request'} — ${note}`;
+          if (await sendSharedChatMessage(requestId, noteText, user)) {
+            upsertLocalChatMessage(requestId, {
+              sender: user.name,
+              senderEmail: user.email,
+              text: noteText,
+              ts: Date.now()
+            });
           }
         }
 
@@ -1783,6 +1991,8 @@
     renderInventoryList();
     renderMemberList((document.getElementById('memberSearch') || {}).value || '');
     populateColorOptions('PLA');
+    renderOutOfStockColors();
+    renderInventoryFeed();
   }
 
   async function init() {
@@ -1802,7 +2012,7 @@
     await hydrateFromApi();
     renderAll();
 
-    // OCS Spring chat: re-render open request chats when live messages arrive.
+    // Shared chat: re-poll open request chats when live messages arrive (Spring).
     const spring = springChat();
     if (spring && spring.onMessage) {
       spring.onMessage(function (event) {
@@ -1822,17 +2032,31 @@
       });
     }
 
-    // Light poll for makerspace API state (inventory/members/requests).
-    if (API_BASE && (document.getElementById('requestList') || document.getElementById('adminRequestList'))) {
-      setInterval(async function () {
-        const ok = await hydrateFromApi();
-        if (ok) renderAll();
-      }, 20000);
+    // Light poll for makerspace API state + shared chat history + stock feed.
+    if (API_BASE || microblogChat()) {
+      const hasRequestUi = !!(document.getElementById('requestList') || document.getElementById('adminRequestList'));
+      const hasInventoryFeed = !!document.getElementById('inventoryFeed');
+      if (hasRequestUi || hasInventoryFeed) {
+        setInterval(async function () {
+          if (API_BASE) {
+            const ok = await hydrateFromApi();
+            if (ok) renderAll();
+          }
+          if (hasInventoryFeed) renderInventoryFeed();
+          // Refresh chats that are currently visible.
+          const openAreas = document.querySelectorAll('[data-chat-area]:not([hidden])');
+          openAreas.forEach(async function (area) {
+            const requestId = area.getAttribute('data-chat-area');
+            if (!requestId) return;
+            if (await loadSharedChatForRequest(requestId)) renderChat(requestId);
+          });
+        }, 20000);
+      }
     }
 
-    // Best-effort Spring connect on pages that show chat.
+    // Best-effort shared chat connect on pages that show chat.
     if (document.getElementById('requestList') || document.getElementById('adminRequestList')) {
-      ensureSpringChatConnected().catch(function () { /* UI already has fallback copy */ });
+      ensureSharedChatReady().catch(function () { /* UI already has fallback copy */ });
     }
   }
 

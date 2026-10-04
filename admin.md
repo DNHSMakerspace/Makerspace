@@ -59,6 +59,12 @@ permalink: /admin/
     </form>
 
     <div id="inventoryList" class="inventory-list"></div>
+
+    <div class="inventory-feed-panel">
+      <h4 class="inventory-feed-title">Shared stock chat</h4>
+      <p class="inventory-feed-note">Adds/removes post here on the school microblog so students on other devices see what’s available — even if this admin session is on localhost.</p>
+      <div id="inventoryFeed" class="inventory-feed"></div>
+    </div>
   </div>
 
   <div class="makerspace-panel form-shell stacked-panel">

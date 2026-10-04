@@ -12,16 +12,17 @@ layout: null
   <link rel="icon" type="image/png" sizes="32x32" href="{{ '/favicon-32x32.png' | relative_url }}?v=ms3d1">
   <link rel="alternate icon" href="{{ '/favicon.ico' | relative_url }}?v=ms3d1">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ '/apple-touch-icon.png' | relative_url }}?v=ms3d1">
-<link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms15">
+<link rel="stylesheet" href="{{ '/assets/css/makerspace.css' | relative_url }}?v=ms18">
 <script>
     // Injected so JS redirects always respect site.baseurl (never drops a path prefix).
     window.MAKERSPACE_BASE = {{ site.baseurl | jsonify }};
     // Makerspace API (auth, inventory, members, requests) — localhost auto-detect.
     window.MAKERSPACE_API = {{ site.makerspace_api | default: '' | jsonify }};
-    // OCS Spring for request chat. /ws-chat is public (no OCS login).
-    // Empty → localhost:8585 / https://spring.opencodingsociety.com.
+    // Flask microblog — primary request chat (guest auth, no OCS login).
+    // Empty → localhost:8587 / https://flask.opencodingsociety.com.
+    window.MAKERSPACE_FLASK_API = {{ site.makerspace_flask_api | default: '' | jsonify }};
+    // Optional OCS Spring chat fallback (needs group id / security patch for REST).
     window.MAKERSPACE_SPRING_API = {{ site.makerspace_spring_api | default: '' | jsonify }};
-    // Optional known Spring group id for group name "makerspace" (skips REST discovery).
     window.MAKERSPACE_SPRING_GROUP_ID = {{ site.makerspace_spring_group_id | default: '' | jsonify }};
   </script>
 </head>
@@ -54,7 +55,8 @@ layout: null
     </footer>
   </div>
 
-  <script src="{{ '/assets/js/makerspace/spring-chat.js' | relative_url }}?v=ms15"></script>
-  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms15"></script>
+  <script src="{{ '/assets/js/makerspace/microblog-chat.js' | relative_url }}?v=ms18"></script>
+  <script src="{{ '/assets/js/makerspace/spring-chat.js' | relative_url }}?v=ms18"></script>
+  <script src="{{ '/assets/js/makerspace.js' | relative_url }}?v=ms18"></script>
 </body>
 </html>

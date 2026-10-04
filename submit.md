@@ -20,6 +20,20 @@ permalink: /submit/
     Once a request is submitted, you’ll get a message in the print request chat to confirm the price before printing begins.
   </p>
 
+  <section class="out-of-stock-panel" id="outOfStockPanel" aria-labelledby="outOfStockTitle">
+    <h2 class="out-of-stock-title" id="outOfStockTitle">Out of stock colors</h2>
+    <p class="out-of-stock-note" id="outOfStockNote">
+      These colors aren’t available right now. Pick a stocked color in the form below.
+    </p>
+    <div id="outOfStockList" class="out-of-stock-list"></div>
+  </section>
+
+  <section class="inventory-feed-panel" aria-labelledby="inventoryFeedTitle">
+    <h2 class="inventory-feed-title" id="inventoryFeedTitle">Inventory updates</h2>
+    <p class="inventory-feed-note">Staff stock changes posted to the shared makerspace chat. Sign in to load them.</p>
+    <div id="inventoryFeed" class="inventory-feed"></div>
+  </section>
+
   <form id="requestForm" class="request-form">
     <div class="form-grid">
       <label class="field">

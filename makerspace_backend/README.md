@@ -21,27 +21,22 @@ python3 makerspace_backend/server.py
 
 The site auto-points at `http://localhost:8787` when opened from `localhost` / `127.0.0.1`.
 
-## Chat (no OCS account required for live messages)
+## Chat (Flask microblog — no OCS account)
 
-Request chat uses **OCS Spring** first via `assets/js/makerspace/spring-chat.js`:
+Request chat is **retextured Flask microblog** via `assets/js/makerspace/microblog-chat.js`:
 
 | | |
 |--|--|
-| Group | `makerspace` |
-| Marker | `[[request:<id>]]` |
-| Live WS | `/ws-chat` — **already `permitAll` in Spring** (no OCS login to send/receive) |
-| REST | `/api/groups/search`, `POST /api/groups`, `/api/groups/chat/{id}/messages` |
-| Config | `_config.yml` → `makerspace_spring_api`, `makerspace_spring_group_id` |
+| Backend | `flask.opencodingsociety.com` `/api/microblog` (already deployed) |
+| Topic | `makerspace-request-<id>` (one thread per print request) |
+| Auth | Free **guest** account derived from makerspace email (`ms-<local>`) |
+| Config | `_config.yml` → `makerspace_flask_api` (empty → localhost:8587 / production Flask) |
 
-**Group id:** set `makerspace_spring_group_id` in `_config.yml` once you know the numeric Spring group id for name `makerspace`, or leave empty and let the client discover/create via REST (needs the security patch below).
+Messages sync across devices once the guest JWT cookie is set (`credentials: include`). No OCS login, no Spring group id.
 
-**Spring security patch (history + auto-create):** live WebSocket needs no OCS session today. To also load history and auto-create the group without OCS, apply either:
-- `makerspace_backend/spring-security-makerspace-chat.patch` (`git apply` from Open-Coding-Society/spring), or
-- the commented insert points in `makerspace_backend/spring-makerspace-chat-security.java.txt` (`SecurityConfig.java` + `apiEndpointRolePolicy()`),
+Optional fallback: OCS Spring chat (`spring-chat.js`) if Flask is down and a Spring group id / security patch is configured.
 
-then redeploy `spring.opencodingsociety.com`.
-
-Auth, inventory, members, and request status still use **this** API. If Spring is unavailable or blocked, chat falls back to this API’s `/api/chats/*` (or localStorage).
+Auth, inventory, members, and request status still use **this** API. Chat also falls back to this API’s `/api/chats/*` (or localStorage) if Flask is unreachable.
 
 ## Deploy (required for real cross-device inventory/members/status)
 
