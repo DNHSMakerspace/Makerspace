@@ -1,4 +1,5 @@
-# Render.com blueprint — Makerspace API
+# Render blueprint — Del Norte Makerspace API
+# Prefer the copy at repo root (render.yaml). This file is kept in sync.
 # After first deploy, copy the service URL into _config.yml:
 #   makerspace_api: "https://<your-service>.onrender.com"
 services:
@@ -7,11 +8,9 @@ services:
     runtime: docker
     plan: free
     rootDir: makerspace_backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     envVars:
-      - key: MAKERSPACE_API_PORT
-        value: "8787"
-    disk:
-      name: makerspace-data
-      mountPath: /app/data
-      sizeGB: 1
+      - key: MAKERSPACE_FLASK_API
+        value: "https://flask.opencodingsociety.com"

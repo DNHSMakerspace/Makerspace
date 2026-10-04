@@ -1,7 +1,7 @@
 # Render blueprint — Del Norte Makerspace API
-# Deploy: Render Dashboard → New → Blueprint → pick this GitHub repo
-# (DNHSMakerspace/Makerspace). After first deploy, copy the service URL into
-# _config.yml:
+# Deploy: Render Dashboard → New → Blueprint → repo DNHSMakerspace/Makerspace
+# Blueprint Path: leave blank (this file is at repo root).
+# After first deploy, copy the service URL into _config.yml:
 #   makerspace_api: "https://<your-service>.onrender.com"
 #
 # Free plan notes:
@@ -13,9 +13,10 @@ services:
     name: makerspace-api
     runtime: docker
     plan: free
+    # Paths below are relative to rootDir (makerspace_backend/).
     rootDir: makerspace_backend
-    dockerfilePath: ./makerspace_backend/Dockerfile
-    dockerContext: ./makerspace_backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     envVars:
       - key: MAKERSPACE_FLASK_API
