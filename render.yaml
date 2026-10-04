@@ -1,0 +1,22 @@
+# Render blueprint — Del Norte Makerspace API
+# Deploy: Render Dashboard → New → Blueprint → pick this GitHub repo
+# (DNHSMakerspace/Makerspace). After first deploy, copy the service URL into
+# _config.yml:
+#   makerspace_api: "https://<your-service>.onrender.com"
+#
+# Free plan notes:
+# - Service sleeps after idle; first request after sleep can take ~30–60s.
+# - Persistent disks are a paid Render feature. Without a disk, data/db.json
+#   resets on redeploy/restart (admin seed still works for re-sign-in).
+services:
+  - type: web
+    name: makerspace-api
+    runtime: docker
+    plan: free
+    rootDir: makerspace_backend
+    dockerfilePath: ./makerspace_backend/Dockerfile
+    dockerContext: ./makerspace_backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: MAKERSPACE_FLASK_API
+        value: "https://flask.opencodingsociety.com"

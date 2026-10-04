@@ -24,7 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "db.json"
-PORT = int(os.environ.get("MAKERSPACE_API_PORT", "8787"))
+# Render injects $PORT; local default stays 8787.
+PORT = int(os.environ.get("PORT") or os.environ.get("MAKERSPACE_API_PORT") or "8787")
 HOST = os.environ.get("MAKERSPACE_API_HOST", "0.0.0.0")
 FLASK_BASE = os.environ.get("MAKERSPACE_FLASK_API", "https://flask.opencodingsociety.com").rstrip("/")
 INVENTORY_TOPIC = os.environ.get("MAKERSPACE_INVENTORY_TOPIC", "makerspace-inventory")

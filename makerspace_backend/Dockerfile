@@ -2,7 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY makerspace_backend/server.py ./server.py
+# Build context is makerspace_backend/ (Render rootDir).
+COPY server.py ./server.py
 RUN mkdir -p /app/data
 
 ENV MAKERSPACE_API_PORT=8787
