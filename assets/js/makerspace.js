@@ -356,13 +356,27 @@
     }
   }
 
+  function setInventoryFeedStatus(message, type) {
+    const status = document.getElementById('inventoryFeedStatus');
+    if (!status) return;
+    status.textContent = message || '';
+    status.classList.remove('is-success', 'is-error');
+    if (type === 'success') status.classList.add('is-success');
+    if (type === 'error') status.classList.add('is-error');
+  }
+
   function renderInventoryFeed() {
     const container = document.getElementById('inventoryFeed');
     if (!container) return;
 
     const user = currentUser();
+    const form = document.getElementById('inventoryFeedForm');
+    const input = document.getElementById('inventoryFeedInput');
+    if (form) form.hidden = !user;
+
     if (!user) {
-      container.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to see inventory updates from staff.</div>';
+      container.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to read and post inventory updates.</div>';
+      setInventoryFeedStatus('');
       return;
     }
 
@@ -370,14 +384,15 @@
       const target = document.getElementById('inventoryFeed');
       if (!target) return;
       if (!result.ok) {
-        target.innerHTML = '<div class="makerspace-empty">Couldn’t load stock chat announcements. Sign in again and hard-refresh (look for ?v=ms19 on makerspace.js).</div>';
+        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms20 on makerspace.js).</div>';
+        setInventoryFeedStatus('Load failed.', 'error');
         return;
       }
       if (!result.messages || !result.messages.length) {
-        target.innerHTML = '<div class="makerspace-empty">No inventory announcements yet. Add/remove a color in Admin tools while signed in.</div>';
+        target.innerHTML = '<div class="makerspace-empty">No updates yet. Post the first stock note above.</div>';
         return;
       }
-      const items = result.messages.slice().reverse().slice(0, 12);
+      const items = result.messages.slice().reverse().slice(0, 20);
       target.innerHTML = items.map(function (message) {
         const when = message.ts ? new Date(message.ts).toLocaleString() : '';
         return `
@@ -393,7 +408,65 @@
     }).catch(function () {
       const target = document.getElementById('inventoryFeed');
       if (!target) return;
-      target.innerHTML = '<div class="makerspace-empty">Unable to load inventory announcements right now.</div>';
+      target.innerHTML = '<div class="makerspace-empty">Unable to load inventory updates right now.</div>';
+      setInventoryFeedStatus('Load failed.', 'error');
+    });
+  }
+
+  async function postInventoryUpdate(text) {
+    const mb = microblogChat();
+    const user = currentUser();
+    if (!user) {
+      return { ok: false, reason: 'not-signed-in' };
+    }
+    if (!mb || !mb.sendMessageToTopic) {
+      return { ok: false, reason: 'chat-unavailable' };
+    }
+    const trimmed = String(text || '').trim();
+    if (!trimmed) {
+      return { ok: false, reason: 'empty' };
+    }
+    try {
+      const sent = await mb.sendMessageToTopic(inventoryTopic(), trimmed, user.name || 'Staff', user);
+      if (sent) return { ok: true };
+      return { ok: false, reason: 'flask-rejected' };
+    } catch (error) {
+      console.warn('Inventory update post failed:', error);
+      return { ok: false, reason: 'network' };
+    }
+  }
+
+  function attachInventoryFeedForm() {
+    const form = document.getElementById('inventoryFeedForm');
+    const input = document.getElementById('inventoryFeedInput');
+    if (!form || !input) return;
+
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const user = currentUser();
+      if (!user) {
+        setInventoryFeedStatus('Sign in first.', 'error');
+        return;
+      }
+
+      const text = input.value;
+      const result = await postInventoryUpdate(text);
+      if (!result.ok) {
+        if (result.reason === 'not-signed-in') {
+          setInventoryFeedStatus('Sign in first.', 'error');
+        } else if (result.reason === 'chat-unavailable') {
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms20).', 'error');
+        } else if (result.reason === 'empty') {
+          setInventoryFeedStatus('Type an update first.', 'error');
+        } else {
+          setInventoryFeedStatus('Post failed — check network, then try again.', 'error');
+        }
+        return;
+      }
+
+      input.value = '';
+      setInventoryFeedStatus('Posted — synced to the shared inventory chat.', 'success');
+      renderInventoryFeed();
     });
   }
 
@@ -2036,6 +2109,7 @@
     attachAdminActions();
     attachAdminCreateForm();
     attachInventoryForm();
+    attachInventoryFeedForm();
     attachMemberSearch();
     attachChatHandlers();
 

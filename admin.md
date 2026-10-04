@@ -61,8 +61,18 @@ permalink: /admin/
     <div id="inventoryList" class="inventory-list"></div>
 
     <div class="inventory-feed-panel">
-      <h4 class="inventory-feed-title">Shared stock chat</h4>
-      <p class="inventory-feed-note">Adds/removes post here on the school microblog so students on other devices see what’s available — even if this admin session is on localhost.</p>
+      <h4 class="inventory-feed-title">Inventory updates</h4>
+      <p class="inventory-feed-note">Manually post stock notes here. They go to the school makerspace chat and sync to every device — even if you’re on localhost.</p>
+      <form id="inventoryFeedForm" class="inventory-feed-form">
+        <label class="field">
+          <span class="visually-hidden">Inventory update</span>
+          <textarea id="inventoryFeedInput" name="message" rows="3" placeholder="Example: Added Gold SILK+. Orange PLA is out." required></textarea>
+        </label>
+        <div class="inventory-feed-actions">
+          <button type="submit" class="makerspace-action-button">Post update</button>
+          <span id="inventoryFeedStatus" class="inventory-feed-status" aria-live="polite"></span>
+        </div>
+      </form>
       <div id="inventoryFeed" class="inventory-feed"></div>
     </div>
   </div>
