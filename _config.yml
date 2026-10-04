@@ -24,8 +24,8 @@ future: true
 
 # Makerspace API (auth, inventory, members, print requests).
 # Local dev: makerspace_backend/server.py on :8787 (auto-detected on localhost).
-# Production: set the public base URL of your deployed makerspace API here.
-makerspace_api: ""
+# Production: Render makerspace-api (inventory feed proxy + accounts/inventory).
+makerspace_api: "https://makerspace-api-o7u6.onrender.com"
 
 # Flask microblog — primary makerspace request chat (guest auth, no OCS login).
 # Local: flask on :8587; production: https://flask.opencodingsociety.com.

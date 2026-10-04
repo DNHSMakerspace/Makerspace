@@ -392,6 +392,37 @@ def parse_microblog_posts(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     return messages
 
 
+def sanitize_topic(topic: str) -> str:
+    return re.sub(r"[^\w.-]", "", str(topic or ""))
+
+
+def request_topic_id(topic: str) -> str:
+    prefix = "makerspace-request-"
+    if topic.startswith(prefix):
+        return topic[len(prefix):]
+    return ""
+
+
+def can_access_topic(state: Dict[str, Any], user: Dict[str, Any], topic: str) -> bool:
+    if not user:
+        return False
+    if topic in {INVENTORY_TOPIC, "makerspace-inventory"}:
+        return True
+    request_id = request_topic_id(topic)
+    if not request_id:
+        return True
+    request = next(
+        (r for r in state.get("requests", []) if r.get("id") == request_id),
+        None,
+    )
+    if not request:
+        # Chat may exist on Flask before this API has the request row.
+        return True
+    return user.get("role") == "admin" or normalize_email(
+        request.get("email")
+    ) == normalize_email(user.get("email"))
+
+
 def read_json_body(handler: BaseHTTPRequestHandler) -> Dict[str, Any]:
     length = int(handler.headers.get("Content-Length") or 0)
     if length <= 0:
@@ -447,18 +478,21 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _handle_inventory_feed_get(self, parsed) -> None:
+    def _handle_microblog_get(self, parsed) -> None:
         with _lock:
             state = load_db()
             user = session_user(state, auth_token(self))
-        if not user:
-            self._send(401, {"error": "Sign in required."})
-            return
-        query = parse_qs(parsed.query or "")
-        topic = (query.get("topic") or [INVENTORY_TOPIC])[0] or INVENTORY_TOPIC
+            if not user:
+                self._send(401, {"error": "Sign in required."})
+                return
+            query = parse_qs(parsed.query or "")
+            topic = sanitize_topic((query.get("topic") or query.get("pagePath") or [INVENTORY_TOPIC])[0] or INVENTORY_TOPIC)
+            if not can_access_topic(state, user, topic):
+                self._send(403, {"error": "You do not have access to this chat."})
+                return
         cookie = flask_guest_cookie(user.get("email") or "")
         if not cookie:
-            self._send(502, {"error": "Unable to reach the shared stock chat."})
+            self._send(502, {"error": "Unable to reach the shared chat server."})
             return
         status, payload, _ = flask_call(
             "GET",
@@ -466,27 +500,99 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
             cookie=cookie,
         )
         if status != 200:
-            self._send(502, {"error": "Shared stock chat returned an error."})
+            self._send(502, {"error": "Shared chat server returned an error."})
             return
-        self._send(200, {"topic": topic, "messages": parse_microblog_posts(payload)})
+        # Also merge durable makerspace_backend chat history for this request.
+        messages = parse_microblog_posts(payload)
+        request_id = request_topic_id(topic)
+        if request_id:
+            chat = next(
+                (c for c in state.get("chats", []) if c.get("requestId") == request_id),
+                None,
+            )
+            if chat:
+                for message in chat.get("messages") or []:
+                    sender = message.get("sender")
+                    text = message.get("text")
+                    match = next(
+                        (
+                            m
+                            for m in messages
+                            if m.get("sender") == sender and m.get("text") == text
+                        ),
+                        None,
+                    )
+                    if match:
+                        # Same logical post written to Flask + this API — keep
+                        # durable senderEmail for "mine" highlight.
+                        if not match.get("senderEmail") and message.get("senderEmail"):
+                            match["senderEmail"] = message.get("senderEmail")
+                        continue
+                    messages.append(
+                        {
+                            "sender": sender,
+                            "senderEmail": message.get("senderEmail"),
+                            "text": text,
+                            "ts": message.get("ts"),
+                        }
+                    )
+                messages.sort(key=lambda item: item.get("ts") or 0)
+        self._send(200, {"topic": topic, "messages": messages})
 
-    def _handle_inventory_feed_post(self, body: Dict[str, Any]) -> None:
+    def _handle_microblog_post(self, body: Dict[str, Any]) -> None:
         with _lock:
             state = load_db()
             user = session_user(state, auth_token(self))
-        if not user:
-            self._send(401, {"error": "Sign in required."})
-            return
-        message = (body.get("message") or "").strip()
-        if not message:
-            self._send(400, {"error": "Type an update first."})
-            return
-        topic = re.sub(r"[^\w.-]", "", str(body.get("topic") or INVENTORY_TOPIC)) or INVENTORY_TOPIC
-        sender = (user.get("name") or "Staff").strip() or "Staff"
-        content = f"{sender}{UNIT_SEP}{message}"
+            if not user:
+                self._send(401, {"error": "Sign in required."})
+                return
+            message = (body.get("message") or body.get("text") or "").strip()
+            if not message:
+                self._send(400, {"error": "Type a message first."})
+                return
+            topic = sanitize_topic(body.get("topic") or body.get("topicPath") or INVENTORY_TOPIC) or INVENTORY_TOPIC
+            if not can_access_topic(state, user, topic):
+                self._send(403, {"error": "You do not have access to this chat."})
+                return
+            sender = (body.get("sender") or user.get("name") or "Staff").strip() or "Staff"
+            content = f"{sender}{UNIT_SEP}{message}"
+            request_id = request_topic_id(topic)
+
+            # Durable copy on this API (works even if Flask is down later).
+            if request_id:
+                chat = next(
+                    (c for c in state.get("chats", []) if c.get("requestId") == request_id),
+                    None,
+                )
+                if not chat:
+                    request = next(
+                        (r for r in state.get("requests", []) if r.get("id") == request_id),
+                        None,
+                    )
+                    chat = {
+                        "id": f"chat-{request_id}",
+                        "requestId": request_id,
+                        "participants": with_admin_participants(
+                            state,
+                            [request.get("email") if request else user.get("email"), user.get("email")],
+                        ),
+                        "messages": [],
+                    }
+                    state.setdefault("chats", []).insert(0, chat)
+                chat.setdefault("messages", []).append(
+                    {
+                        "sender": sender,
+                        "senderEmail": user.get("email"),
+                        "text": message,
+                        "ts": now_ms(),
+                    }
+                )
+                save_db_locked()
+
         cookie = flask_guest_cookie(user.get("email") or "")
         if not cookie:
-            self._send(502, {"error": "Unable to reach the shared stock chat."})
+            # Local API copy saved; Flask sync failed.
+            self._send(200, {"ok": True, "topic": topic, "savedLocally": True})
             return
         status, payload, _ = flask_call(
             "POST",
@@ -495,16 +601,25 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
             cookie=cookie,
         )
         if status != 200:
-            self._send(502, {"error": "Shared stock chat rejected the post."})
+            self._send(200, {"ok": True, "topic": topic, "savedLocally": True, "flaskSync": False})
             return
-        self._send(200, {"ok": True, "topic": topic, "remoteId": payload.get("id")})
+        self._send(200, {"ok": True, "topic": topic, "remoteId": payload.get("id"), "flaskSync": True})
+
+    def _handle_inventory_feed_get(self, parsed) -> None:
+        self._handle_microblog_get(parsed)
+
+    def _handle_inventory_feed_post(self, body: Dict[str, Any]) -> None:
+        if not (body.get("topic") or body.get("topicPath")):
+            body = dict(body)
+            body["topic"] = INVENTORY_TOPIC
+        self._handle_microblog_post(body)
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
-        if path == "/api/inventory-feed":
-            self._handle_inventory_feed_get(parsed)
+        if path in {"/api/inventory-feed", "/api/microblog"}:
+            self._handle_microblog_get(parsed)
             return
 
         with _lock:
@@ -587,8 +702,8 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/") or "/"
         body = read_json_body(self)
 
-        if path == "/api/inventory-feed":
-            self._handle_inventory_feed_post(body)
+        if path in {"/api/inventory-feed", "/api/microblog"}:
+            self._handle_microblog_post(body)
             return
 
         with _lock:

@@ -17,51 +17,64 @@ python3 makerspace_backend/server.py
 
 - Listens on `http://localhost:8787` by default
 - Override: `MAKERSPACE_API_PORT=9000 python3 makerspace_backend/server.py`
+- Production: honors Render `PORT` env var
 - Data file: `makerspace_backend/data/db.json` (created on first run)
 
-The site auto-points at `http://localhost:8787` when opened from `localhost` / `127.0.0.1`.
+The site auto-points at `http://localhost:8787` when opened from `localhost` / `127.0.0.1`. Production sets `makerspace_api` in `_config.yml`.
 
-## Chat (Flask microblog — no OCS account)
+## Production (Render)
 
-Request chat is **retextured Flask microblog** via `assets/js/makerspace/microblog-chat.js`:
+- Live service: `https://makerspace-api-o7u6.onrender.com`
+- Health: `GET /api/health`
+- Blueprint: repo-root `render.yaml` + `makerspace_backend/render.yaml`
+  - `rootDir: makerspace_backend`, `dockerfilePath: ./Dockerfile`, `dockerContext: .`
+- Free tier: cold starts (~30–60s after idle); no persistent disk — `data/db.json` resets on redeploy. Flask chat posts persist on the school server.
+- After changing `_config.yml` `makerspace_api`, push so GitHub Pages redeploys `window.MAKERSPACE_API`.
+
+## Chat (request chats are real chats)
+
+Browser → **this API** → Flask microblog (server-side). Direct browser → Flask CORS fails on `dnhsmakerspace.github.io` and often on `localhost:4500`.
 
 | | |
 |--|--|
-| Backend | `flask.opencodingsociety.com` `/api/microblog` (already deployed) |
+| Browser | `GET /api/microblog?topic=makerspace-request-<id>` + `POST /api/microblog` `{topic, message, sender}` |
+| Server | Flask `opencodingsociety.com` `/api/microblog` (guest auth derived from makerspace email) |
+| Also saved | Durable copy on this API under `/api/chats/<requestId>` |
 | Topic | `makerspace-request-<id>` (one thread per print request) |
-| Auth | Free **guest** account derived from makerspace email (`ms-<local>`) |
-| Config | `_config.yml` → `makerspace_flask_api` (empty → localhost:8587 / production Flask) |
 
-Messages sync across devices once the guest JWT cookie is set (`credentials: include`). No OCS login, no Spring group id.
+`/api/inventory-feed` is an alias for the same handlers (defaults topic `makerspace-inventory`).
 
-Optional fallback: OCS Spring chat (`spring-chat.js`) if Flask is down and a Spring group id / security patch is configured.
+Optional fallback: OCS Spring chat (`spring-chat.js`) or this API `/api/chats/*`, then localStorage.
 
-Auth, inventory, members, and request status still use **this** API. Chat also falls back to this API’s `/api/chats/*` (or localStorage) if Flask is unreachable.
+**Flask security:** no per-topic ACL — any authenticated guest can read/write any topic. Request chats are school-shared, not private.
 
 ### Inventory updates microblog (manual posts)
 
-The site’s **Inventory updates** panel posts to Flask topic `makerspace-inventory`. Direct browser → Flask POST fails on `http://localhost` because Flask CORS preflight does not allow that origin. When `makerspace_api` points at this server, the browser posts **here** instead, and this process talks to Flask server-side (same guest identity derivation as the JS adapter).
+The site’s **Inventory updates** panel posts to Flask topic `makerspace-inventory` via this API (server-side Flask call). Same CORS reason as request chats.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/api/inventory-feed?topic=makerspace-inventory` | Bearer | Load shared stock-chat messages |
-| POST | `/api/inventory-feed` | Bearer | `{ "message": "...", "topic": "makerspace-inventory" }` |
+| GET | `/api/microblog?topic=makerspace-inventory` | Bearer | Load shared stock-chat messages |
+| POST | `/api/microblog` | Bearer | `{ "message": "...", "topic": "makerspace-inventory" }` |
+| GET/POST | `/api/inventory-feed` | Bearer | Alias (defaults inventory topic) |
 
 Override Flask base with `MAKERSPACE_FLASK_API` (default `https://flask.opencodingsociety.com`).
 
+Topic ACL: any signed-in user can read/post inventory; request topics limited to the request owner or an admin when the request row exists on this API.
+
 ## Deploy (required for real cross-device inventory/members/status)
 
-GitHub Pages cannot run this process. Deploy it anywhere that can run Python 3 (school server, Render, Railway, Fly.io, a VM behind nginx, etc.), then set the public base URL in `_config.yml`:
+GitHub Pages cannot run this process. Deploy it anywhere that can run Python 3 (Render, Railway, Fly.io, a VM behind nginx, etc.), then set the public base URL in `_config.yml`:
 
 ```yaml
-makerspace_api: "https://makerspace-api.example.com"
+makerspace_api: "https://makerspace-api-o7u6.onrender.com"
 ```
 
 A Render blueprint example lives in `render.yaml` / `Dockerfile` in this folder.
 
 Rebuild/republish the site so `_layouts/makerspace.html` injects `window.MAKERSPACE_API`.
 
-CORS is open (`*`) for the simple school deployment. If you put it behind a stricter proxy, allow origin `https://pages.opencodingsociety.com`.
+CORS is open (`*`) for the simple school deployment. If you put it behind a stricter proxy, allow the GitHub Pages origin.
 
 ## Seeded accounts
 
@@ -78,6 +91,10 @@ Primary admin cannot be deleted. Demo student + one active request/chat are seed
 |--------|------|------|---------|
 | GET | `/api/health` | — | Liveness |
 | GET | `/api/state` | optional Bearer | Full state for the signed-in user (inventory always; requests/chats filtered) |
+| GET | `/api/microblog?topic=...` | Bearer | Shared chat / inventory feed (Flask proxy) |
+| POST | `/api/microblog` | Bearer | Post to shared chat / inventory feed |
+| GET | `/api/inventory-feed?topic=...` | Bearer | Alias of microblog GET |
+| POST | `/api/inventory-feed` | Bearer | Alias of microblog POST |
 | POST | `/api/auth/signup` | — | Create member account + session |
 | POST | `/api/auth/signin` | — | Sign in |
 | POST | `/api/auth/signout` | Bearer | Drop session token |

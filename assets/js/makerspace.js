@@ -412,7 +412,7 @@
       const target = document.getElementById('inventoryFeed');
       if (!target) return;
       if (!result.ok) {
-        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms20 on makerspace.js).</div>';
+        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms22 on makerspace.js).</div>';
         setInventoryFeedStatus('Load failed.', 'error');
         return;
       }
@@ -498,13 +498,13 @@
         if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms21).', 'error');
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms22).', 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
         } else if (result.reason === 'flask-rejected') {
-          setInventoryFeedStatus('Server rejected the post. Run make makerspace-api, then try again.', 'error');
+          setInventoryFeedStatus('Server rejected the post. Check network / makerspace API, then try again.', 'error');
         } else {
-          setInventoryFeedStatus('Post failed — run make makerspace-api and check network, then try again.', 'error');
+          setInventoryFeedStatus('Post failed — check network / makerspace API, then try again.', 'error');
         }
         return;
       }
@@ -520,11 +520,13 @@
   }
 
   function chatBackendLabel() {
+    // Production + localhost with makerspace API configured: chats go through
+    // makerspace_backend (Render) → Flask microblog server-side (no CORS).
+    if (API_BASE) return 'api';
     const mb = microblogChat();
     if (mb && mb.isAvailable && mb.isAvailable()) return 'chat';
     const spring = springChat();
     if (spring && spring.isConnected && spring.isConnected()) return 'spring';
-    if (API_BASE) return 'api';
     return 'device';
   }
 
@@ -560,8 +562,27 @@
     });
   }
 
+  function requestChatTopic(requestId) {
+    return 'makerspace-request-' + String(requestId || '').replace(/[^\w.-]/g, '');
+  }
+
   async function loadSharedChatForRequest(requestId) {
     const user = currentUser();
+    const topic = requestChatTopic(requestId);
+
+    // Prefer makerspace API proxy — browser CORS to Flask fails on github.io.
+    if (API_BASE) {
+      try {
+        const data = await apiFetch('/api/microblog?topic=' + encodeURIComponent(topic));
+        if (data && Array.isArray(data.messages)) {
+          mergeRemoteChatMessages(requestId, data.messages);
+          return true;
+        }
+      } catch (error) {
+        console.warn('Makerspace chat proxy load failed; trying Flask directly.', error);
+      }
+    }
+
     const mb = microblogChat();
     if (mb && mb.loadMessagesForRequest) {
       try {
@@ -587,6 +608,8 @@
 
   async function ensureSharedChatReady() {
     const user = currentUser();
+    // API path does proxy auth server-side; still warm Flask as fallback.
+    if (API_BASE) return true;
     let ready = false;
     const mb = microblogChat();
     if (mb && mb.ensureGuestAuth) {
@@ -604,6 +627,26 @@
   }
 
   async function sendSharedChatMessage(requestId, text, user) {
+    const topic = requestChatTopic(requestId);
+
+    // Prefer makerspace API proxy — browser CORS to Flask fails on github.io.
+    // Server dual-writes Flask (school shared chat) + makerspace_backend chats.
+    if (API_BASE) {
+      try {
+        const data = await apiFetch('/api/microblog', {
+          method: 'POST',
+          body: JSON.stringify({
+            topic,
+            message: text,
+            sender: user.name
+          })
+        });
+        if (data && data.ok) return true;
+      } catch (error) {
+        console.warn('Makerspace chat proxy send failed; trying Flask directly.', error);
+      }
+    }
+
     const mb = microblogChat();
     if (mb && mb.sendMessage) {
       try {
@@ -1721,14 +1764,14 @@
 
   function springChatSourceLabel() {
     const backend = chatBackendLabel();
+    if (backend === 'api') {
+      return 'Live chat via makerspace server — syncs across devices (school shared chat).';
+    }
     if (backend === 'chat') {
       return 'Live chat via school server — syncs across devices (no OCS login).';
     }
     if (backend === 'spring') {
       return 'Live chat via school OCS — syncs across devices.';
-    }
-    if (backend === 'api') {
-      return 'Chat via makerspace server (shared chat backend offline).';
     }
     return 'Chat on this device only — shared server offline.';
   }
@@ -1804,11 +1847,11 @@
       return;
     }
 
-    // Primary: shared chat (Flask microblog guest auth — no OCS login).
+    // Primary: makerspace API proxy → Flask direct → Spring (shared chat).
     const sharedLoaded = await loadSharedChatForRequest(requestId);
     await ensureSharedChatReady();
 
-    // Fallback history: makerspace API when shared history did not load.
+    // Fallback history: makerspace API chats when shared chat did not load.
     if (!sharedLoaded && API_BASE) {
       try {
         const result = await apiFetch(`/api/chats/${encodeURIComponent(requestId)}`);
@@ -1879,7 +1922,7 @@
         return;
       }
 
-      // Primary: shared chat (Flask microblog, then Spring if connected).
+      // Primary: makerspace API proxy → Flask direct → Spring.
       if (await sendSharedChatMessage(requestId, text, user)) {
         upsertLocalChatMessage(requestId, {
           sender: user.name,
@@ -1891,7 +1934,7 @@
         return;
       }
 
-      // Fallback: makerspace API / localStorage.
+      // Fallback: makerspace API chats / localStorage.
       if (!API_BASE) {
         state.chats = state.chats || [];
         let chat = state.chats.find((c) => c.requestId === requestId);
