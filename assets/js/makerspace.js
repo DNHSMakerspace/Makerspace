@@ -412,7 +412,7 @@
       const target = document.getElementById('inventoryFeed');
       if (!target) return;
       if (!result.ok) {
-        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms22 on makerspace.js).</div>';
+        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms23 on makerspace.js).</div>';
         setInventoryFeedStatus('Load failed.', 'error');
         return;
       }
@@ -420,7 +420,7 @@
         target.innerHTML = '<div class="makerspace-empty">No updates yet. Post the first stock note above.</div>';
         return;
       }
-      const items = result.messages.slice().reverse().slice(0, 20);
+      const items = result.messages.slice().reverse().slice(0, 4);
       target.innerHTML = items.map(function (message) {
         const when = message.ts ? new Date(message.ts).toLocaleString() : '';
         return `
@@ -498,7 +498,7 @@
         if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms22).', 'error');
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms23).', 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
         } else if (result.reason === 'flask-rejected') {
