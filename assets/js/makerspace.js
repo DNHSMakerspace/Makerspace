@@ -300,9 +300,13 @@
   // announce where production devices listen (not local-only Flask).
   async function announceInventoryChange(action, item, actor) {
     const mb = microblogChat();
-    if (!mb || !mb.sendMessageToTopic || !item) return false;
+    if (!mb || !mb.sendMessageToTopic || !item) {
+      return { ok: false, reason: 'chat-unavailable' };
+    }
     const user = currentUser();
-    if (!user) return false;
+    if (!user) {
+      return { ok: false, reason: 'not-signed-in' };
+    }
     const state = readState();
     const text = buildInventoryAnnouncement(
       action,
@@ -312,10 +316,32 @@
       (actor && actor.name) || user.name
     );
     try {
-      return await mb.sendMessageToTopic(inventoryTopic(), text, (actor && actor.name) || user.name || 'Inventory', user);
+      const sent = await mb.sendMessageToTopic(
+        inventoryTopic(),
+        text,
+        (actor && actor.name) || user.name || 'Inventory',
+        user
+      );
+      if (sent) return { ok: true };
+      return { ok: false, reason: 'flask-rejected' };
     } catch (error) {
-      return false;
+      console.warn('Inventory microblog announcement failed:', error);
+      return { ok: false, reason: 'network' };
     }
+  }
+
+  function inventoryAnnounceLabel(result) {
+    if (result && result.ok) {
+      return 'Announcement posted to the shared stock chat.';
+    }
+    if (!result) return 'Announcement skipped.';
+    if (result.reason === 'not-signed-in') {
+      return 'Announcement skipped — sign in with your makerspace account first.';
+    }
+    if (result.reason === 'chat-unavailable') {
+      return 'Announcement skipped — stock chat script not loaded (hard-refresh the page).';
+    }
+    return 'Announcement failed — check network / stock chat, then try again.';
   }
 
   async function loadInventoryAnnouncements() {
@@ -336,15 +362,19 @@
 
     const user = currentUser();
     if (!user) {
-      container.innerHTML = '<div class="makerspace-empty">Sign in to see inventory updates from staff.</div>';
+      container.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to see inventory updates from staff.</div>';
       return;
     }
 
     loadInventoryAnnouncements().then(function (result) {
       const target = document.getElementById('inventoryFeed');
       if (!target) return;
-      if (!result.ok || !result.messages || !result.messages.length) {
-        target.innerHTML = '<div class="makerspace-empty">No inventory announcements yet.</div>';
+      if (!result.ok) {
+        target.innerHTML = '<div class="makerspace-empty">Couldn’t load stock chat announcements. Sign in again and hard-refresh (look for ?v=ms19 on makerspace.js).</div>';
+        return;
+      }
+      if (!result.messages || !result.messages.length) {
+        target.innerHTML = '<div class="makerspace-empty">No inventory announcements yet. Add/remove a color in Admin tools while signed in.</div>';
         return;
       }
       const items = result.messages.slice().reverse().slice(0, 12);
@@ -1342,9 +1372,9 @@
           form.reset();
           renderInventoryList();
           refreshColorOptionsFromForm();
-          await announceInventoryChange('added', { name, material }, actor);
+          const announce = await announceInventoryChange('added', { name, material }, actor);
           renderInventoryFeed();
-          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory on this device only (shared server offline). Announcement sent to the shared stock chat.`, 'success');
+          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory on this device only (shared server offline). ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
           return;
         }
 
@@ -1357,9 +1387,9 @@
           form.reset();
           renderInventoryList();
           refreshColorOptionsFromForm();
-          await announceInventoryChange('added', { name, material }, actor);
+          const announce = await announceInventoryChange('added', { name, material }, actor);
           renderInventoryFeed();
-          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory. Announcement posted to the shared stock chat.`, 'success');
+          showAlert('#inventoryAlert', `Added ${name} to ${material} inventory. ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
         } catch (error) {
           handleApiError(error, '#inventoryAlert', 'Unable to add inventory.');
         }
@@ -1385,11 +1415,12 @@
         writeState(state);
         renderInventoryList();
         refreshColorOptionsFromForm();
+        let announce = { ok: false, reason: 'no-item' };
         if (removed) {
-          await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
+          announce = await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
           renderInventoryFeed();
         }
-        showAlert('#inventoryAlert', 'Inventory item removed on this device only (shared server offline). Announcement sent to the shared stock chat.', 'success');
+        showAlert('#inventoryAlert', `Inventory item removed on this device only (shared server offline). ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
         return;
       }
 
@@ -1399,11 +1430,12 @@
         applyApiPayload(result);
         renderInventoryList();
         refreshColorOptionsFromForm();
+        let announce = { ok: false, reason: 'no-item' };
         if (removed) {
-          await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
+          announce = await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
           renderInventoryFeed();
         }
-        showAlert('#inventoryAlert', 'Inventory item removed. Announcement posted to the shared stock chat.', 'success');
+        showAlert('#inventoryAlert', `Inventory item removed. ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
       } catch (error) {
         handleApiError(error, '#inventoryAlert', 'Unable to remove inventory item.');
       }
