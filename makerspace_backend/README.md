@@ -29,6 +29,7 @@ The site auto-points at `http://localhost:8787` when opened from `localhost` / `
 - Blueprint: repo-root `render.yaml` + `makerspace_backend/render.yaml`
   - `rootDir: makerspace_backend`, `dockerfilePath: ./Dockerfile`, `dockerContext: .`
 - Free tier: cold starts (~30–60s after idle); no persistent disk — `data/db.json` resets on redeploy. Flask chat posts persist on the school server.
+- **Keep-alive:** repo workflow `.github/workflows/keep-render-awake.yml` hits `/api/health` every 10 minutes so the service does not sleep. If school Wi-Fi still drops the first request, the site shows a gold **Retry connection** banner (`#makerspaceApiStatus`).
 - After changing `_config.yml` `makerspace_api`, push so GitHub Pages redeploys `window.MAKERSPACE_API`.
 
 ## Chat (request chats are real chats)
@@ -110,7 +111,7 @@ Primary admin cannot be deleted. Demo student + one active request/chat are seed
 | POST | `/api/inventory-feed` | Bearer | Post inventory microblog message |
 | POST | `/api/chats/{requestId}/messages` | Bearer | Send chat message |
 | GET/POST | `/api/members` | Admin | List / create admins |
-| PATCH/DELETE | `/api/members/{email}` | Admin | Edit / delete account |
+| PATCH/DELETE | `/api/members/{email}` | Admin | Edit / delete account (`@` may be `%40`-encoded; blank password keeps current) |
 
 Auth is a random bearer token returned on signup/signin and stored by the client in `localStorage` (`makerspace-session-token`).
 

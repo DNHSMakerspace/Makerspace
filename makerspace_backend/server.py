@@ -21,7 +21,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "db.json"
 # Render injects $PORT; local default stays 8787.
@@ -1063,7 +1063,8 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
                 return
 
             if path.startswith("/api/members/"):
-                original_email = normalize_email(path[len("/api/members/") :])
+                # Client encodeURIComponent()s emails (@ → %40); decode before lookup.
+                original_email = normalize_email(unquote(path[len("/api/members/") :]))
                 target = find_user_by_email(state, original_email)
                 if not target:
                     self._send(404, {"error": "Account not found."})
@@ -1152,7 +1153,7 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
                 return
 
             if path.startswith("/api/members/"):
-                email = normalize_email(path[len("/api/members/") :])
+                email = normalize_email(unquote(path[len("/api/members/") :]))
                 if email == ADMIN_EMAIL.lower():
                     self._send(*api_error(400, "The primary admin account cannot be deleted."))
                     return

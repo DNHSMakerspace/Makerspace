@@ -7,7 +7,9 @@
   const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
   // Fallback if HTML was cached before _config.yml injected MAKERSPACE_API.
   const FALLBACK_PRODUCTION_API = 'https://makerspace-api-o7u6.onrender.com';
-  const API_TIMEOUT_MS = 45000;
+  // School firewalls often drop long hangs before Render finishes waking up.
+  const API_TIMEOUT_MS = 25000;
+  const API_STATUS_ID = 'makerspaceApiStatus';
 
   function isLocalhostHost() {
     if (typeof window === 'undefined') return false;
@@ -40,6 +42,7 @@
   const API_BASE = resolveApiBase();
   let stateCache = null;
   let apiHealthy = null;
+  let apiStatusKind = ''; // '', 'ok', 'waking', 'blocked'
 
   function msBaseUrl() {
     if (typeof window !== 'undefined' && typeof window.MAKERSPACE_BASE === 'string') {
@@ -246,18 +249,84 @@
   async function hydrateFromApi() {
     if (!API_BASE) {
       apiHealthy = false;
+      setApiStatus('blocked', 'Shared makerspace server is not configured on this page.');
       return false;
     }
     try {
       const data = await apiFetchWithRetry('/api/state', null, 1);
       applyApiPayload(data);
       apiHealthy = true;
+      setApiStatus('ok', 'Shared server connected.');
       return true;
     } catch (error) {
       apiHealthy = false;
       console.warn('Makerspace API hydrate failed; using local cache.', error);
+      const reason = (error && error.code) || 'network';
+      if (reason === 'NETWORK') {
+        setApiStatus('waking', 'Shared server unreachable — it may be waking up, or school Wi-Fi is blocking makerspace-api-o7u6.onrender.com.');
+      } else {
+        setApiStatus('blocked', (error && error.message) || 'Shared server error.');
+      }
       return false;
     }
+  }
+
+  function setApiStatus(kind, message) {
+    apiStatusKind = kind || '';
+    let el = document.getElementById(API_STATUS_ID);
+    if (!el) {
+      const main = document.getElementById('main') || document.querySelector('.makerspace-main') || document.body;
+      el = document.createElement('div');
+      el.id = API_STATUS_ID;
+      el.className = 'api-status';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      main.insertBefore(el, main.firstChild);
+    }
+    el.className = 'api-status' + (kind ? ' is-' + kind : '');
+    el.hidden = !kind || kind === 'ok';
+    if (!kind || kind === 'ok') {
+      el.innerHTML = '';
+      return;
+    }
+    const server = API_BASE || 'not configured';
+    el.innerHTML = `
+      <div class="api-status-text">
+        <strong>${kind === 'waking' ? 'Shared server slow / unreachable' : 'Shared server problem'}</strong>
+        <span>${escapeHtml(message || '')}</span>
+        <span class="api-status-meta">Server: ${escapeHtml(server)}</span>
+      </div>
+      <button type="button" class="makerspace-action-button api-status-retry" data-api-retry>Retry connection</button>
+    `;
+  }
+
+  async function retryApiConnection() {
+    setApiStatus('waking', 'Retrying shared server…');
+    const ok = await hydrateFromApi();
+    renderAll();
+    if (!ok) {
+      setApiStatus(
+        'waking',
+        'Still unreachable. Wait ~30s after the first visit (Render wakes from sleep), then Retry. If this is school Wi-Fi, try another network.'
+      );
+    }
+  }
+
+  function attachApiStatusHandlers() {
+    document.addEventListener('click', function (event) {
+      const btn = event.target.closest('[data-api-retry]');
+      if (!btn) return;
+      event.preventDefault();
+      retryApiConnection();
+    });
+  }
+
+  function keepApiWarm() {
+    if (!API_BASE || apiHealthy) return;
+    apiFetch('/api/health', { timeoutMs: 20000 }).then(function () {
+      apiHealthy = true;
+      setApiStatus('ok', 'Shared server connected.');
+    }).catch(function () { /* banner already set by hydrate */ });
   }
 
   function currentUser() {
@@ -416,7 +485,7 @@
       return 'Announcement skipped — shared server not configured. Hard-refresh the page.';
     }
     if (result.reason === 'NETWORK') {
-      return 'Announcement failed — shared server unreachable (may be waking up). Try again in ~30s.';
+      return 'Announcement failed — shared server unreachable (may be waking up). Tap Retry connection above.';
     }
     if (result.reason === 'chat-unavailable') {
       return 'Announcement skipped — stock chat script not loaded (hard-refresh the page).';
@@ -482,8 +551,13 @@
       if (!result.ok) {
         const reason = result.reason || '';
         if (reason === 'NETWORK') {
-          target.innerHTML = '<div class="makerspace-empty">Couldn’t reach the shared stock chat. Wait ~30 seconds (server may be waking up) and try again.</div>';
-          setInventoryFeedStatus('Server unreachable — try again shortly.', 'error');
+          target.innerHTML = `
+            <div class="makerspace-empty">Couldn’t reach the shared stock chat.</div>
+            <p class="request-hint">It may still be waking up, or school Wi-Fi is blocking the makerspace server. Tap Retry connection at the top of the page, wait ~30s, then try again.</p>
+            <button type="button" class="makerspace-action-button" data-api-retry>Retry connection</button>
+          `;
+          setApiStatus('waking', 'Inventory updates could not load — shared server unreachable.');
+          setInventoryFeedStatus('Server unreachable — tap Retry connection.', 'error');
           return;
         }
         if (reason === 'not-signed-in' || reason === 'no-api') {
@@ -491,8 +565,11 @@
           setInventoryFeedStatus('');
           return;
         }
-        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms24 on makerspace.js).</div>';
-        setInventoryFeedStatus('Load failed.', 'error');
+        target.innerHTML = `
+          <div class="makerspace-empty">Couldn’t load updates.</div>
+          <button type="button" class="makerspace-action-button" data-api-retry>Retry connection</button>
+        `;
+        setInventoryFeedStatus('Load failed — tap Retry connection.', 'error');
         return;
       }
       if (!result.messages || !result.messages.length) {
@@ -582,11 +659,12 @@
         if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms24).', 'error');
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms26).', 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
         } else if (result.reason === 'NETWORK') {
-          setInventoryFeedStatus('Cannot reach the shared server — wait ~30s (it may be waking up) and try again.', 'error');
+          setInventoryFeedStatus('Cannot reach the shared server — tap Retry connection at the top, or wait ~30s and post again.', 'error');
+          setApiStatus('waking', 'Inventory post failed — shared server unreachable.');
         } else if (result.reason === 'no-api') {
           setInventoryFeedStatus('Shared server not configured — hard-refresh the page, then try again.', 'error');
         } else if (result.reason === 'flask-rejected') {
@@ -810,9 +888,11 @@
 
     const state = readState();
     const openJobs = state.requests.filter((item) => isActiveStatus(item.status));
+    const chatSnaps = snapshotOpenChats();
 
     if (!openJobs.length) {
       container.innerHTML = '<div class="makerspace-empty">There are no open print jobs right now.</div>';
+      restoreOpenChats(chatSnaps);
       return;
     }
 
@@ -851,6 +931,7 @@
         </article>
       `;
     }).join('');
+    restoreOpenChats(chatSnaps);
   }
 
   function renderRequestLists() {
@@ -861,6 +942,7 @@
     const emptyEl = document.getElementById('requestsEmpty');
     const state = readState();
     const user = currentUser();
+    const chatSnaps = snapshotOpenChats();
 
     if (!user) {
       listEl.innerHTML = '';
@@ -890,6 +972,7 @@
         ? history.map((item) => buildRequestMarkup(item, { history: true, scope: 'history' })).join('')
         : '<div class="makerspace-empty">No print history yet.</div>';
     }
+    restoreOpenChats(chatSnaps);
   }
 
   function updateSignedInState() {
@@ -972,11 +1055,11 @@
       return;
     }
     if (error && error.code === 'NETWORK') {
-      showAlert(alertSelector, raw, 'error');
+      showAlert(alertSelector, raw + ' If this is the first visit in a while, wait ~30s and tap Retry connection at the top of the page.', 'error');
       return;
     }
     if (/failed to fetch|networkerror|load failed|cannot reach/i.test(raw)) {
-      showAlert(alertSelector, 'Cannot reach the shared makerspace server. Wait ~30 seconds (it may be waking up) and try again.', 'error');
+      showAlert(alertSelector, 'Cannot reach the shared makerspace server. Wait ~30 seconds (it may be waking up), then tap Retry connection at the top of the page.', 'error');
       return;
     }
     showAlert(alertSelector, raw, 'error');
@@ -1313,10 +1396,24 @@
       return;
     }
 
+    const openForm = openMemberEmail
+      ? document.querySelector(`[data-member-edit="${CSS.escape(openMemberEmail)}"]`)
+      : null;
+    const editSnapshot = openForm ? {
+      email: (openForm.querySelector('[name="email"]') || {}).value || '',
+      schoolId: (openForm.querySelector('[name="schoolId"]') || {}).value || '',
+      password: (openForm.querySelector('[name="password"]') || {}).value || '',
+      role: (openForm.querySelector('[name="role"]') || {}).value || 'member'
+    } : null;
+
     container.innerHTML = users.map((item) => {
       const email = item.email || '';
       const isOpen = openMemberEmail && openMemberEmail.toLowerCase() === email.toLowerCase();
       const requestCount = memberRequestHistory(state, email).length;
+      const emailVal = isOpen && editSnapshot ? editSnapshot.email : email;
+      const schoolVal = isOpen && editSnapshot ? editSnapshot.schoolId : (item.schoolId || '');
+      const passVal = isOpen && editSnapshot ? editSnapshot.password : (item.password || '');
+      const roleVal = isOpen && editSnapshot ? editSnapshot.role : (item.role || 'member');
       return `
         <article class="member-card${isOpen ? ' is-open' : ''}" data-member-email="${escapeHtml(email)}">
           <div class="member-card-header">
@@ -1355,21 +1452,21 @@
               <div class="form-grid">
                 <label class="field">
                   Email
-                  <input type="email" name="email" value="${escapeHtml(email)}" required pattern="^[^@\\s]+@stu\\.powayusd\\.com$" title="Use a Poway school email ending in @stu.powayusd.com">
+                  <input type="email" name="email" value="${escapeHtml(emailVal)}" required pattern="^[^@\\s]+@stu\\.powayusd\\.com$" title="Use a Poway school email ending in @stu.powayusd.com">
                 </label>
                 <label class="field">
                   School ID
-                  <input type="text" name="schoolId" value="${escapeHtml(item.schoolId || '')}" required pattern="^19\\d{5}$" title="Enter a 7-digit ID starting with 19">
+                  <input type="text" name="schoolId" value="${escapeHtml(schoolVal)}" required pattern="^19\\d{5}$" title="Enter a 7-digit ID starting with 19">
                 </label>
                 <label class="field">
                   Password
-                  <input type="text" name="password" value="${escapeHtml(item.password || '')}" required minlength="4">
+                  <input type="text" name="password" value="${escapeHtml(passVal)}" minlength="4" placeholder="Leave blank to keep current password">
                 </label>
                 <label class="field">
                   Role
                   <select name="role" required>
-                    <option value="member" ${(item.role || 'member') === 'member' ? 'selected' : ''}>Member</option>
-                    <option value="admin" ${item.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    <option value="member" ${roleVal === 'member' ? 'selected' : ''}>Member</option>
+                    <option value="admin" ${roleVal === 'admin' ? 'selected' : ''}>Admin</option>
                   </select>
                   <span class="field-hint">Admins can review requests, manage inventory, and edit members.</span>
                 </label>
@@ -1490,8 +1587,13 @@
         alertEl.className = 'member-panel-alert alert show success';
       };
 
-      if (!email || !schoolId || password.length < 4) {
-        fail('Email, school ID, and password (min 4 chars) are all required.');
+      if (!email || !schoolId) {
+        fail('Email and school ID are required.');
+        return;
+      }
+      // Empty password keeps the existing one (server ignores blank password).
+      if (password && password.length < 4) {
+        fail('Password must be at least 4 characters, or leave it blank to keep the current password.');
         return;
       }
       if (!isValidStudentEmail(email) && email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
@@ -1528,7 +1630,7 @@
         }
         target.email = email;
         target.schoolId = schoolId;
-        target.password = password;
+        if (password) target.password = password;
         target.role = originalEmail === ADMIN_EMAIL.toLowerCase() ? 'admin' : role;
         if (state.session && (state.session.email || '').toLowerCase() === originalEmail) {
           state.session.email = email;
@@ -1578,7 +1680,15 @@
             : ' Role updated to member.';
         ok(`Saved changes for ${email}.${roleNote}`);
       } catch (error) {
-        fail((error && error.message) || 'Unable to save member changes.');
+        const message = (error && error.message) || 'Unable to save member changes.';
+        if (error && (error.status === 404 || /account not found/i.test(message))) {
+          // Stale browser cache or shared-server reset — resync from the API.
+          await hydrateFromApi();
+          refreshMemberListFromSearch();
+          fail('Account not found on the shared server. The list was refreshed — pick an account that still exists.');
+          return;
+        }
+        fail(message);
       }
     });
   }
@@ -1886,6 +1996,11 @@
       return;
     }
 
+    // Keep draft text + focus across re-renders (poll / message refresh).
+    const existingInput = area.querySelector('.chatForm input[name="message"]');
+    const draft = existingInput ? existingInput.value : '';
+    const wasFocused = !!(existingInput && document.activeElement === existingInput);
+
     const sourceLabel = springChatSourceLabel();
 
     if (!chat || !(chat.messages || []).length) {
@@ -1897,6 +2012,7 @@
           <button type="submit" class="makerspace-action-button">Send</button>
         </form>
       `;
+      restoreChatDraft(area, draft, wasFocused);
       return;
     }
 
@@ -1919,12 +2035,64 @@
         <button type="submit" class="makerspace-action-button">Send</button>
       </form>
     `;
+    restoreChatDraft(area, draft, wasFocused);
+  }
+
+  function restoreChatDraft(area, draft, wasFocused) {
+    if (!area) return;
+    const input = area.querySelector('.chatForm input[name="message"]');
+    if (!input) return;
+    if (draft) input.value = draft;
+    if (wasFocused) input.focus();
+  }
+
+  function snapshotOpenChats() {
+    const snaps = [];
+    document.querySelectorAll('[data-chat-area]').forEach((area) => {
+      const id = area.getAttribute('data-chat-area');
+      if (!id) return;
+      const input = area.querySelector('.chatForm input[name="message"]');
+      snaps.push({
+        id,
+        hidden: area.hasAttribute('hidden'),
+        draft: input ? input.value : '',
+        focused: !!(input && document.activeElement === input)
+      });
+    });
+    return snaps;
+  }
+
+  function restoreOpenChats(snaps) {
+    (snaps || []).forEach((snap) => {
+      const area = document.querySelector(`[data-chat-area="${snap.id}"]`);
+      if (!area) return;
+      if (snap.hidden) area.setAttribute('hidden', '');
+      else area.removeAttribute('hidden');
+      restoreChatDraft(area, snap.draft, snap.focused);
+    });
+  }
+
+  function isUserTyping() {
+    const el = document.activeElement;
+    if (!el || el === document.body) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
+  function isChatAreaFocused(area) {
+    if (!area) return false;
+    const active = document.activeElement;
+    return !!(active && area.contains(active));
   }
 
   function renderChat(requestId) {
     const user = currentUser();
     const chat = findChatByRequest(requestId);
     document.querySelectorAll(`[data-chat-area="${requestId}"]`).forEach((area) => {
+      // Never clobber a chat the user is actively typing into.
+      if (isChatAreaFocused(area)) return;
       renderChatInArea(area, requestId, user, chat);
     });
   }
@@ -1969,6 +2137,8 @@
 
     areas.forEach((area) => {
       const isOpen = !area.hasAttribute('hidden');
+      // If the user is typing in this open chat, leave it alone.
+      if (isOpen && isChatAreaFocused(area)) return;
       if (forceOpen || !isOpen) {
         area.removeAttribute('hidden');
         renderChatInArea(area, requestId, user, findChatByRequest(requestId));
@@ -2040,7 +2210,8 @@
       // Fallback: makerspace API chats / localStorage.
       if (!API_BASE) {
         if (!directFlaskAllowed()) {
-          showAlert('#requestAlert', 'Cannot send chat — shared makerspace server unreachable. Wait ~30s and try again.', 'error');
+          showAlert('#requestAlert', 'Cannot send chat — shared makerspace server unreachable. Tap Retry connection at the top, or wait ~30s and try again.', 'error');
+          setApiStatus('waking', 'Chat send failed — shared server unreachable.');
           return;
         }
         state.chats = state.chats || [];
@@ -2307,11 +2478,20 @@
     attachInventoryFeedForm();
     attachMemberSearch();
     attachChatHandlers();
+    attachApiStatusHandlers();
 
     // Paint immediately from cache, then hydrate makerspace API state.
     renderAll();
     await hydrateFromApi();
     renderAll();
+    keepApiWarm();
+
+    // Re-warm when the tab becomes visible again (Render may have slept).
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && !apiHealthy) {
+        keepApiWarm();
+      }
+    });
 
     // Shared chat: re-poll open request chats when live messages arrive (Spring).
     const spring = springChat();
@@ -2339,16 +2519,20 @@
       const hasInventoryFeed = !!document.getElementById('inventoryFeed');
       if (hasRequestUi || hasInventoryFeed) {
         setInterval(async function () {
+          // Never rebuild lists while the user is typing — that wipes open
+          // chat inputs and member-edit forms under the cursor.
+          if (isUserTyping()) return;
           if (API_BASE) {
             const ok = await hydrateFromApi();
-            if (ok) renderAll();
+            if (ok && !isUserTyping()) renderAll();
           }
-          if (hasInventoryFeed) renderInventoryFeed();
-          // Refresh chats that are currently visible.
+          if (hasInventoryFeed && !isUserTyping()) renderInventoryFeed();
+          // Refresh chats that are currently visible (renderChat skips focused areas).
           const openAreas = document.querySelectorAll('[data-chat-area]:not([hidden])');
           openAreas.forEach(async function (area) {
             const requestId = area.getAttribute('data-chat-area');
             if (!requestId) return;
+            if (isChatAreaFocused(area)) return;
             if (await loadSharedChatForRequest(requestId)) renderChat(requestId);
           });
         }, 20000);
