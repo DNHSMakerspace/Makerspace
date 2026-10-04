@@ -5,6 +5,21 @@
   const ACTIVE_STATUSES = ['pending', 'approved'];
   const HISTORY_STATUSES = ['rejected', 'completed', 'closed'];
   const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
+  // Fallback if HTML was cached before _config.yml injected MAKERSPACE_API.
+  const FALLBACK_PRODUCTION_API = 'https://makerspace-api-o7u6.onrender.com';
+  const API_TIMEOUT_MS = 45000;
+
+  function isLocalhostHost() {
+    if (typeof window === 'undefined') return false;
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+  }
+
+  // Browser → Flask CORS fails on github.io / most school origins.
+  // Only localhost may call Flask directly; everyone else must use the API proxy.
+  function directFlaskAllowed() {
+    return isLocalhostHost();
+  }
 
   // Shared API base. Layout injects window.MAKERSPACE_API in production;
   // localhost auto-points at makerspace_backend/server.py on :8787.
@@ -15,6 +30,10 @@
     if (typeof window === 'undefined') return '';
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8787';
+    // Stale HTML cache can miss the injected config — use known production API.
+    if (host.endsWith('github.io') || host === 'pages.opencodingsociety.com') {
+      return FALLBACK_PRODUCTION_API;
+    }
     return '';
   }
 
@@ -173,7 +192,22 @@
     const token = sessionToken();
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const res = await fetch(API_BASE + path, Object.assign({}, opts, { headers }));
+    const timeoutMs = opts.timeoutMs || API_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    let res;
+    try {
+      res = await fetch(API_BASE + path, Object.assign({}, opts, { headers, signal: controller.signal }));
+    } catch (error) {
+      clearTimeout(timer);
+      const err = new Error(
+        'Cannot reach the shared makerspace server. It may be waking up (~30s on first use) — wait a moment and try again.'
+      );
+      err.code = 'NETWORK';
+      err.cause = error;
+      throw err;
+    }
+    clearTimeout(timer);
     let data = null;
     try {
       data = await res.json();
@@ -191,13 +225,31 @@
     return data || {};
   }
 
+  async function apiFetchWithRetry(path, options, retries) {
+    const attempts = typeof retries === 'number' ? retries : 1;
+    let lastError;
+    for (let i = 0; i <= attempts; i += 1) {
+      try {
+        return await apiFetch(path, options);
+      } catch (error) {
+        lastError = error;
+        if (error && error.code === 'NETWORK' && i < attempts) {
+          await new Promise(function (resolve) { setTimeout(resolve, 2500); });
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError;
+  }
+
   async function hydrateFromApi() {
     if (!API_BASE) {
       apiHealthy = false;
       return false;
     }
     try {
-      const data = await apiFetch('/api/state');
+      const data = await apiFetchWithRetry('/api/state', null, 1);
       applyApiPayload(data);
       apiHealthy = true;
       return true;
@@ -317,15 +369,20 @@
 
     if (API_BASE) {
       try {
-        const data = await apiFetch('/api/inventory-feed', {
+        const data = await apiFetchWithRetry('/api/inventory-feed', {
           method: 'POST',
           body: JSON.stringify({ message: text, topic: inventoryTopic() })
-        });
+        }, 1);
         if (data && data.ok) return { ok: true };
         return { ok: false, reason: 'flask-rejected' };
       } catch (error) {
         console.warn('Inventory feed proxy announcement failed.', error);
+        return { ok: false, reason: (error && error.code) || 'network' };
       }
+    }
+
+    if (!directFlaskAllowed()) {
+      return { ok: false, reason: 'no-api' };
     }
 
     const mb = microblogChat();
@@ -355,32 +412,43 @@
     if (result.reason === 'not-signed-in') {
       return 'Announcement skipped — sign in with your makerspace account first.';
     }
+    if (result.reason === 'no-api') {
+      return 'Announcement skipped — shared server not configured. Hard-refresh the page.';
+    }
+    if (result.reason === 'NETWORK') {
+      return 'Announcement failed — shared server unreachable (may be waking up). Try again in ~30s.';
+    }
     if (result.reason === 'chat-unavailable') {
       return 'Announcement skipped — stock chat script not loaded (hard-refresh the page).';
     }
-    return 'Announcement failed — check network / stock chat, then try again.';
+    return 'Announcement failed — check network / makerspace API, then try again.';
   }
 
   async function loadInventoryAnnouncements() {
     const user = currentUser();
-    if (!user) return { ok: false, messages: [] };
+    if (!user) return { ok: false, messages: [], reason: 'not-signed-in' };
 
-    // Prefer makerspace_backend proxy — direct Flask CORS fails on localhost.
+    // Production/github.io: only the makerspace API proxy (Flask CORS will fail).
     if (API_BASE) {
       try {
-        const data = await apiFetch('/api/inventory-feed?topic=' + encodeURIComponent(inventoryTopic()));
+        const data = await apiFetchWithRetry('/api/inventory-feed?topic=' + encodeURIComponent(inventoryTopic()), null, 1);
         return { ok: true, messages: (data && data.messages) || [] };
       } catch (error) {
-        console.warn('Inventory feed proxy load failed; trying Flask directly.', error);
+        console.warn('Inventory feed proxy load failed.', error);
+        return { ok: false, messages: [], reason: (error && error.code) || 'network' };
       }
     }
 
+    if (!directFlaskAllowed()) {
+      return { ok: false, messages: [], reason: 'no-api' };
+    }
+
     const mb = microblogChat();
-    if (!mb || !mb.loadMessagesForTopic) return { ok: false, messages: [] };
+    if (!mb || !mb.loadMessagesForTopic) return { ok: false, messages: [], reason: 'chat-unavailable' };
     try {
       return await mb.loadMessagesForTopic(inventoryTopic(), user);
     } catch (error) {
-      return { ok: false, messages: [] };
+      return { ok: false, messages: [], reason: 'network' };
     }
   }
 
@@ -412,7 +480,18 @@
       const target = document.getElementById('inventoryFeed');
       if (!target) return;
       if (!result.ok) {
-        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms23 on makerspace.js).</div>';
+        const reason = result.reason || '';
+        if (reason === 'NETWORK') {
+          target.innerHTML = '<div class="makerspace-empty">Couldn’t reach the shared stock chat. Wait ~30 seconds (server may be waking up) and try again.</div>';
+          setInventoryFeedStatus('Server unreachable — try again shortly.', 'error');
+          return;
+        }
+        if (reason === 'not-signed-in' || reason === 'no-api') {
+          target.innerHTML = '<div class="makerspace-empty">Sign in with your makerspace account to read and post inventory updates.</div>';
+          setInventoryFeedStatus('');
+          return;
+        }
+        target.innerHTML = '<div class="makerspace-empty">Couldn’t load updates. Sign in again and hard-refresh (?v=ms24 on makerspace.js).</div>';
         setInventoryFeedStatus('Load failed.', 'error');
         return;
       }
@@ -451,18 +530,23 @@
       return { ok: false, reason: 'empty' };
     }
 
-    // Prefer makerspace_backend proxy (same-origin) — Flask CORS blocks localhost posts.
+    // Production/github.io: only the makerspace API proxy (Flask CORS will fail).
     if (API_BASE) {
       try {
-        const data = await apiFetch('/api/inventory-feed', {
+        const data = await apiFetchWithRetry('/api/inventory-feed', {
           method: 'POST',
           body: JSON.stringify({ message: trimmed, topic: inventoryTopic() })
-        });
+        }, 1);
         if (data && data.ok) return { ok: true };
         return { ok: false, reason: 'flask-rejected' };
       } catch (error) {
-        console.warn('Inventory feed proxy post failed; trying Flask directly.', error);
+        console.warn('Inventory feed proxy post failed.', error);
+        return { ok: false, reason: (error && error.code) || 'network' };
       }
+    }
+
+    if (!directFlaskAllowed()) {
+      return { ok: false, reason: 'no-api' };
     }
 
     const mb = microblogChat();
@@ -498,9 +582,13 @@
         if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms23).', 'error');
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms24).', 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
+        } else if (result.reason === 'NETWORK') {
+          setInventoryFeedStatus('Cannot reach the shared server — wait ~30s (it may be waking up) and try again.', 'error');
+        } else if (result.reason === 'no-api') {
+          setInventoryFeedStatus('Shared server not configured — hard-refresh the page, then try again.', 'error');
         } else if (result.reason === 'flask-rejected') {
           setInventoryFeedStatus('Server rejected the post. Check network / makerspace API, then try again.', 'error');
         } else {
@@ -570,18 +658,21 @@
     const user = currentUser();
     const topic = requestChatTopic(requestId);
 
-    // Prefer makerspace API proxy — browser CORS to Flask fails on github.io.
+    // Production/github.io: only the makerspace API proxy (Flask CORS will fail).
     if (API_BASE) {
       try {
-        const data = await apiFetch('/api/microblog?topic=' + encodeURIComponent(topic));
+        const data = await apiFetchWithRetry('/api/microblog?topic=' + encodeURIComponent(topic), null, 1);
         if (data && Array.isArray(data.messages)) {
           mergeRemoteChatMessages(requestId, data.messages);
           return true;
         }
       } catch (error) {
-        console.warn('Makerspace chat proxy load failed; trying Flask directly.', error);
+        console.warn('Makerspace chat proxy load failed.', error);
+        return false;
       }
     }
+
+    if (!directFlaskAllowed()) return false;
 
     const mb = microblogChat();
     if (mb && mb.loadMessagesForRequest) {
@@ -608,8 +699,9 @@
 
   async function ensureSharedChatReady() {
     const user = currentUser();
-    // API path does proxy auth server-side; still warm Flask as fallback.
+    // API path does proxy auth server-side; only warm Flask on localhost.
     if (API_BASE) return true;
+    if (!directFlaskAllowed()) return false;
     let ready = false;
     const mb = microblogChat();
     if (mb && mb.ensureGuestAuth) {
@@ -629,23 +721,26 @@
   async function sendSharedChatMessage(requestId, text, user) {
     const topic = requestChatTopic(requestId);
 
-    // Prefer makerspace API proxy — browser CORS to Flask fails on github.io.
+    // Production/github.io: only the makerspace API proxy (Flask CORS will fail).
     // Server dual-writes Flask (school shared chat) + makerspace_backend chats.
     if (API_BASE) {
       try {
-        const data = await apiFetch('/api/microblog', {
+        const data = await apiFetchWithRetry('/api/microblog', {
           method: 'POST',
           body: JSON.stringify({
             topic,
             message: text,
             sender: user.name
           })
-        });
+        }, 1);
         if (data && data.ok) return true;
       } catch (error) {
-        console.warn('Makerspace chat proxy send failed; trying Flask directly.', error);
+        console.warn('Makerspace chat proxy send failed.', error);
+        return false;
       }
     }
+
+    if (!directFlaskAllowed()) return false;
 
     const mb = microblogChat();
     if (mb && mb.sendMessage) {
@@ -871,12 +966,20 @@
   }
 
   function handleApiError(error, alertSelector, fallbackMessage) {
-    const message = (error && error.message) || fallbackMessage || 'Something went wrong.';
+    const raw = (error && error.message) || fallbackMessage || 'Something went wrong.';
     if (error && error.code === 'NO_API') {
-      showAlert(alertSelector, 'The makerspace server is not reachable. Start it with `python3 makerspace_backend/server.py` or check MAKERSPACE_API.', 'error');
+      showAlert(alertSelector, 'Shared makerspace server is not configured for this page yet. Hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) and try again.', 'error');
       return;
     }
-    showAlert(alertSelector, message, 'error');
+    if (error && error.code === 'NETWORK') {
+      showAlert(alertSelector, raw, 'error');
+      return;
+    }
+    if (/failed to fetch|networkerror|load failed|cannot reach/i.test(raw)) {
+      showAlert(alertSelector, 'Cannot reach the shared makerspace server. Wait ~30 seconds (it may be waking up) and try again.', 'error');
+      return;
+    }
+    showAlert(alertSelector, raw, 'error');
   }
 
   function attachSignup() {
@@ -998,10 +1101,10 @@
       }
 
       try {
-        const result = await apiFetch('/api/auth/signin', {
+        const result = await apiFetchWithRetry('/api/auth/signin', {
           method: 'POST',
           body: JSON.stringify({ email, password })
-        });
+        }, 1);
         setSessionToken(result.token);
         applyApiPayload(result);
         updateSignedInState();
@@ -1922,7 +2025,7 @@
         return;
       }
 
-      // Primary: makerspace API proxy → Flask direct → Spring.
+      // Primary: makerspace API proxy (Flask direct only on localhost).
       if (await sendSharedChatMessage(requestId, text, user)) {
         upsertLocalChatMessage(requestId, {
           sender: user.name,
@@ -1936,6 +2039,10 @@
 
       // Fallback: makerspace API chats / localStorage.
       if (!API_BASE) {
+        if (!directFlaskAllowed()) {
+          showAlert('#requestAlert', 'Cannot send chat — shared makerspace server unreachable. Wait ~30s and try again.', 'error');
+          return;
+        }
         state.chats = state.chats || [];
         let chat = state.chats.find((c) => c.requestId === requestId);
         if (!chat) {
