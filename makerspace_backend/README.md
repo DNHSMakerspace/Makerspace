@@ -38,6 +38,17 @@ Optional fallback: OCS Spring chat (`spring-chat.js`) if Flask is down and a Spr
 
 Auth, inventory, members, and request status still use **this** API. Chat also falls back to this API’s `/api/chats/*` (or localStorage) if Flask is unreachable.
 
+### Inventory updates microblog (manual posts)
+
+The site’s **Inventory updates** panel posts to Flask topic `makerspace-inventory`. Direct browser → Flask POST fails on `http://localhost` because Flask CORS preflight does not allow that origin. When `makerspace_api` points at this server, the browser posts **here** instead, and this process talks to Flask server-side (same guest identity derivation as the JS adapter).
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/api/inventory-feed?topic=makerspace-inventory` | Bearer | Load shared stock-chat messages |
+| POST | `/api/inventory-feed` | Bearer | `{ "message": "...", "topic": "makerspace-inventory" }` |
+
+Override Flask base with `MAKERSPACE_FLASK_API` (default `https://flask.opencodingsociety.com`).
+
 ## Deploy (required for real cross-device inventory/members/status)
 
 GitHub Pages cannot run this process. Deploy it anywhere that can run Python 3 (school server, Render, Railway, Fly.io, a VM behind nginx, etc.), then set the public base URL in `_config.yml`:
@@ -78,6 +89,8 @@ Primary admin cannot be deleted. Demo student + one active request/chat are seed
 | POST | `/api/requests` | Bearer | Create print request |
 | POST | `/api/requests/{id}/status` | Admin | `{ "action": "accept\|complete\|close\|reject" }` |
 | GET | `/api/chats/{requestId}` | Bearer | One request chat |
+| GET | `/api/inventory-feed` | Bearer | Shared inventory microblog messages |
+| POST | `/api/inventory-feed` | Bearer | Post inventory microblog message |
 | POST | `/api/chats/{requestId}/messages` | Bearer | Send chat message |
 | GET/POST | `/api/members` | Admin | List / create admins |
 | PATCH/DELETE | `/api/members/{email}` | Admin | Edit / delete account |

@@ -16,14 +16,19 @@ import re
 import secrets
 import threading
 import time
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import parse_qs, urlparse
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "db.json"
 PORT = int(os.environ.get("MAKERSPACE_API_PORT", "8787"))
 HOST = os.environ.get("MAKERSPACE_API_HOST", "0.0.0.0")
+FLASK_BASE = os.environ.get("MAKERSPACE_FLASK_API", "https://flask.opencodingsociety.com").rstrip("/")
+INVENTORY_TOPIC = os.environ.get("MAKERSPACE_INVENTORY_TOPIC", "makerspace-inventory")
+UNIT_SEP = "\u001f"
 
 ADMIN_EMAIL = "krishk27411@stu.powayusd.com"
 DEMO_STUDENT_EMAIL = "teststudent@stu.powayusd.com"
@@ -280,6 +285,112 @@ def api_error(status: int, message: str) -> tuple:
     return status, {"error": message}
 
 
+def base36(value: int) -> str:
+    digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+    if value == 0:
+        return "0"
+    out = ""
+    while value:
+        value, rem = divmod(value, 36)
+        out = digits[rem] + out
+    return out
+
+
+def guest_identity(email: str) -> Dict[str, str]:
+    """Mirror assets/js/makerspace/microblog-chat.js guest derivation."""
+    normalized = normalize_email(email)
+    local = normalized.split("@")[0] or "guest"
+    slug = re.sub(r"[^a-z0-9]", "", local) or "guest"
+    uid = f"ms-{slug}"
+    seed = f"dnms|{normalized}"
+    hash_value = 5381
+    for ch in seed:
+        hash_value = ((hash_value * 33) ^ ord(ch)) & 0xFFFFFFFF
+    return {"uid": uid, "password": f"ms{base36(hash_value)}x"}
+
+
+def flask_call(
+    method: str,
+    path: str,
+    payload: Optional[Dict[str, Any]] = None,
+    cookie: str = "",
+) -> Tuple[int, Dict[str, Any], str]:
+    url = f"{FLASK_BASE}{path}"
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(url, data=data, method=method)
+    request.add_header("Content-Type", "application/json")
+    request.add_header("X-Origin", "makerspace-backend")
+    request.add_header("Origin", "https://pages.opencodingsociety.com")
+    if cookie:
+        request.add_header("Cookie", cookie)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            raw = response.read()
+            set_cookie = response.headers.get("Set-Cookie") or ""
+            status = response.status
+    except urllib.error.HTTPError as error:
+        raw = error.read()
+        set_cookie = error.headers.get("Set-Cookie") or ""
+        status = error.code
+    except Exception as error:  # network / DNS
+        return 0, {"error": f"Flask unreachable: {error}"}, ""
+
+    parsed: Dict[str, Any] = {}
+    if raw:
+        try:
+            parsed = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError:
+            parsed = {"raw": raw.decode("utf-8", errors="replace")}
+    return status, parsed if isinstance(parsed, dict) else {"data": parsed}, set_cookie
+
+
+def flask_guest_cookie(email: str) -> str:
+    identity = guest_identity(email)
+    status, _, set_cookie = flask_call("POST", "/api/authenticate", identity)
+    if status != 200:
+        flask_call("POST", "/api/user/guest", identity)
+        status, _, set_cookie = flask_call("POST", "/api/authenticate", identity)
+    if status != 200 or not set_cookie:
+        return ""
+    return set_cookie.split(";", 1)[0]
+
+
+def parse_microblog_posts(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    posts = payload.get("microblogs") or payload.get("posts") or []
+    if not isinstance(posts, list):
+        return []
+    messages: List[Dict[str, Any]] = []
+    for post in posts:
+        if not isinstance(post, dict):
+            continue
+        raw = str(post.get("content") or "")
+        sender = str(post.get("userName") or post.get("userUid") or "Unknown")
+        text = raw
+        if UNIT_SEP in raw:
+            left, right = raw.split(UNIT_SEP, 1)
+            if left.strip():
+                sender = left.strip()
+            text = right
+        ts = None
+        timestamp = post.get("timestamp")
+        if timestamp:
+            try:
+                parsed_ts = time.mktime(time.strptime(str(timestamp)[:19], "%Y-%m-%dT%H:%M:%S"))
+                ts = int(parsed_ts * 1000)
+            except ValueError:
+                ts = None
+        messages.append(
+            {
+                "sender": sender,
+                "text": text,
+                "ts": ts,
+                "remoteId": post.get("id"),
+            }
+        )
+    messages.sort(key=lambda item: item.get("ts") or 0)
+    return messages
+
+
 def read_json_body(handler: BaseHTTPRequestHandler) -> Dict[str, Any]:
     length = int(handler.headers.get("Content-Length") or 0)
     if length <= 0:
@@ -335,9 +446,66 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _handle_inventory_feed_get(self, parsed) -> None:
+        with _lock:
+            state = load_db()
+            user = session_user(state, auth_token(self))
+        if not user:
+            self._send(401, {"error": "Sign in required."})
+            return
+        query = parse_qs(parsed.query or "")
+        topic = (query.get("topic") or [INVENTORY_TOPIC])[0] or INVENTORY_TOPIC
+        cookie = flask_guest_cookie(user.get("email") or "")
+        if not cookie:
+            self._send(502, {"error": "Unable to reach the shared stock chat."})
+            return
+        status, payload, _ = flask_call(
+            "GET",
+            f"/api/microblog?pagePath={urllib.parse.quote(topic)}",
+            cookie=cookie,
+        )
+        if status != 200:
+            self._send(502, {"error": "Shared stock chat returned an error."})
+            return
+        self._send(200, {"topic": topic, "messages": parse_microblog_posts(payload)})
+
+    def _handle_inventory_feed_post(self, body: Dict[str, Any]) -> None:
+        with _lock:
+            state = load_db()
+            user = session_user(state, auth_token(self))
+        if not user:
+            self._send(401, {"error": "Sign in required."})
+            return
+        message = (body.get("message") or "").strip()
+        if not message:
+            self._send(400, {"error": "Type an update first."})
+            return
+        topic = re.sub(r"[^\w.-]", "", str(body.get("topic") or INVENTORY_TOPIC)) or INVENTORY_TOPIC
+        sender = (user.get("name") or "Staff").strip() or "Staff"
+        content = f"{sender}{UNIT_SEP}{message}"
+        cookie = flask_guest_cookie(user.get("email") or "")
+        if not cookie:
+            self._send(502, {"error": "Unable to reach the shared stock chat."})
+            return
+        status, payload, _ = flask_call(
+            "POST",
+            "/api/microblog",
+            {"content": content, "topicPath": topic},
+            cookie=cookie,
+        )
+        if status != 200:
+            self._send(502, {"error": "Shared stock chat rejected the post."})
+            return
+        self._send(200, {"ok": True, "topic": topic, "remoteId": payload.get("id")})
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
+
+        if path == "/api/inventory-feed":
+            self._handle_inventory_feed_get(parsed)
+            return
+
         with _lock:
             state = load_db()
             user = session_user(state, auth_token(self))
@@ -417,6 +585,10 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
         body = read_json_body(self)
+
+        if path == "/api/inventory-feed":
+            self._handle_inventory_feed_post(body)
+            return
 
         with _lock:
             state = load_db()

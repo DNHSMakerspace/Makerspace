@@ -299,9 +299,8 @@
   // Post to the shared Flask inventory topic so localhost admin edits still
   // announce where production devices listen (not local-only Flask).
   async function announceInventoryChange(action, item, actor) {
-    const mb = microblogChat();
-    if (!mb || !mb.sendMessageToTopic || !item) {
-      return { ok: false, reason: 'chat-unavailable' };
+    if (!item) {
+      return { ok: false, reason: 'no-item' };
     }
     const user = currentUser();
     if (!user) {
@@ -315,6 +314,24 @@
       state.inventory,
       (actor && actor.name) || user.name
     );
+
+    if (API_BASE) {
+      try {
+        const data = await apiFetch('/api/inventory-feed', {
+          method: 'POST',
+          body: JSON.stringify({ message: text, topic: inventoryTopic() })
+        });
+        if (data && data.ok) return { ok: true };
+        return { ok: false, reason: 'flask-rejected' };
+      } catch (error) {
+        console.warn('Inventory feed proxy announcement failed.', error);
+      }
+    }
+
+    const mb = microblogChat();
+    if (!mb || !mb.sendMessageToTopic) {
+      return { ok: false, reason: 'chat-unavailable' };
+    }
     try {
       const sent = await mb.sendMessageToTopic(
         inventoryTopic(),
@@ -345,10 +362,21 @@
   }
 
   async function loadInventoryAnnouncements() {
-    const mb = microblogChat();
-    if (!mb || !mb.loadMessagesForTopic) return { ok: false, messages: [] };
     const user = currentUser();
     if (!user) return { ok: false, messages: [] };
+
+    // Prefer makerspace_backend proxy — direct Flask CORS fails on localhost.
+    if (API_BASE) {
+      try {
+        const data = await apiFetch('/api/inventory-feed?topic=' + encodeURIComponent(inventoryTopic()));
+        return { ok: true, messages: (data && data.messages) || [] };
+      } catch (error) {
+        console.warn('Inventory feed proxy load failed; trying Flask directly.', error);
+      }
+    }
+
+    const mb = microblogChat();
+    if (!mb || !mb.loadMessagesForTopic) return { ok: false, messages: [] };
     try {
       return await mb.loadMessagesForTopic(inventoryTopic(), user);
     } catch (error) {
@@ -414,17 +442,32 @@
   }
 
   async function postInventoryUpdate(text) {
-    const mb = microblogChat();
     const user = currentUser();
     if (!user) {
       return { ok: false, reason: 'not-signed-in' };
     }
-    if (!mb || !mb.sendMessageToTopic) {
-      return { ok: false, reason: 'chat-unavailable' };
-    }
     const trimmed = String(text || '').trim();
     if (!trimmed) {
       return { ok: false, reason: 'empty' };
+    }
+
+    // Prefer makerspace_backend proxy (same-origin) — Flask CORS blocks localhost posts.
+    if (API_BASE) {
+      try {
+        const data = await apiFetch('/api/inventory-feed', {
+          method: 'POST',
+          body: JSON.stringify({ message: trimmed, topic: inventoryTopic() })
+        });
+        if (data && data.ok) return { ok: true };
+        return { ok: false, reason: 'flask-rejected' };
+      } catch (error) {
+        console.warn('Inventory feed proxy post failed; trying Flask directly.', error);
+      }
+    }
+
+    const mb = microblogChat();
+    if (!mb || !mb.sendMessageToTopic) {
+      return { ok: false, reason: 'chat-unavailable' };
     }
     try {
       const sent = await mb.sendMessageToTopic(inventoryTopic(), trimmed, user.name || 'Staff', user);
@@ -455,11 +498,13 @@
         if (result.reason === 'not-signed-in') {
           setInventoryFeedStatus('Sign in first.', 'error');
         } else if (result.reason === 'chat-unavailable') {
-          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms20).', 'error');
+          setInventoryFeedStatus('Chat script missing — hard-refresh (?v=ms21).', 'error');
         } else if (result.reason === 'empty') {
           setInventoryFeedStatus('Type an update first.', 'error');
+        } else if (result.reason === 'flask-rejected') {
+          setInventoryFeedStatus('Server rejected the post. Run make makerspace-api, then try again.', 'error');
         } else {
-          setInventoryFeedStatus('Post failed — check network, then try again.', 'error');
+          setInventoryFeedStatus('Post failed — run make makerspace-api and check network, then try again.', 'error');
         }
         return;
       }
