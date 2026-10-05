@@ -63,8 +63,10 @@ DEFAULT_INVENTORY = [
     {"id": "inv-pla-white", "name": "White PLA basic", "material": "PLA"},
     {"id": "inv-petg-clear", "name": "Clear PETG", "material": "PETG"},
     {"id": "inv-petg-black", "name": "Black PETG", "material": "PETG"},
-    {"id": "inv-silk-gold", "name": "Gold SILK+", "material": "SILK+"},
-    {"id": "inv-silk-silver", "name": "Silver SILK+", "material": "SILK+"},
+    {"id": "inv-silk-blue", "name": "Blue SILK+", "material": "SILK+"},
+    {"id": "inv-pla-dark green", "name": "Dark green PLA", "material": "PLA"},
+    {"id": "inv-pla-yellow", "name": "Yellow PLA", "material": "PLA"},
+    {"id": "inv-pla-red", "name": "red PLA basic", "material": "PLA"},
 ]
 
 _lock = threading.RLock()

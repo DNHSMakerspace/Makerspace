@@ -1,13 +1,13 @@
 # Keep the free-tier Render makerspace API warm.
 # Render sleeps after ~15 min idle; cold starts take 30–60s and school
 # firewalls often drop the connection first (browser shows "Failed to fetch").
-# Hourly ping (not more often) so free-tier hours are not burned by a busy cron.
+# Every 14 minutes keeps the service warm without burning free-tier hours too quickly.
 name: Keep makerspace API awake
 
 on:
   schedule:
-    # Once an hour at :07 (GitHub schedule can be delayed during load).
-    - cron: "7 * * * *"
+    # Run every 14 minutes (GitHub schedule can be delayed during load).
+    - cron: "*/14 * * * *"
   workflow_dispatch:
 
 jobs:
