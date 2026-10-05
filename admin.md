@@ -83,14 +83,14 @@ permalink: /admin/
       <div>
         <span class="eyebrow">Directory</span>
         <h3>Members</h3>
-        <p>Search every account. Open a member to view their print history, edit email / school ID / password / role, promote them to admin, or delete the account.</p>
+        <p>Only your account is listed by default — search to find other members. Open a member to view their print history, edit email / school ID / password / role, promote them to admin, or delete the account.</p>
       </div>
     </div>
 
     <label class="field">
       Search members
-      <input type="search" id="memberSearch" placeholder="Name, email, school ID, password, or role" autocomplete="off">
-      <span class="field-hint">Searches name, email, school ID, password, and role.</span>
+      <input type="search" id="memberSearch" placeholder="Name, email, school ID, or role" autocomplete="off">
+      <span class="field-hint">Searches name, email, school ID, and role. Clear the search to show only your account.</span>
     </label>
 
     <div id="memberList" class="member-list"></div>

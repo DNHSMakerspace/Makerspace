@@ -1418,10 +1418,18 @@
     }
 
     const state = readState();
-    const users = (state.users || []).filter((item) => memberMatchesQuery(item, query));
+    const me = currentUser();
+    const queryText = (query || '').trim();
+    // Default view lists only your own account; searching reveals everyone else.
+    const users = (state.users || []).filter((item) => {
+      if (!queryText) return !!(me && item.email === me.email);
+      return memberMatchesQuery(item, queryText);
+    });
 
     if (!users.length) {
-      container.innerHTML = '<div class="makerspace-empty">No members match that search.</div>';
+      container.innerHTML = queryText
+        ? '<div class="makerspace-empty">No members match that search.</div>'
+        : '<div class="makerspace-empty">No account found.</div>';
       return;
     }
 
