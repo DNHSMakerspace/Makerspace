@@ -54,7 +54,8 @@ ADMIN_EMAIL = "krishk27411@stu.powayusd.com"
 DEMO_STUDENT_EMAIL = "teststudent@stu.powayusd.com"
 ALLOWED_MATERIALS = {"PLA", "PETG", "SILK+"}
 ACTIVE_STATUSES = {"pending", "approved"}
-HISTORY_STATUSES = {"rejected", "completed", "closed"}
+# Rejected requests are hidden everywhere client-side; history = finished prints.
+HISTORY_STATUSES = {"completed", "closed"}
 
 DEFAULT_INVENTORY = [
     {"id": "inv-pla-orange", "name": "Orange PLA basic", "material": "PLA"},
@@ -1194,8 +1195,10 @@ class MakerspaceHandler(BaseHTTPRequestHandler):
                     request["status"] = "Approved"
                     note_key = "accepted"
                 elif action == "complete":
-                    if normalized != "approved":
-                        self._send(*api_error(409, "Only approved requests can be marked completed."))
+                    # Merged admin action: finishes a request from either open
+                    # state (replaces the old accept/close pair) → print history.
+                    if normalized not in ACTIVE_STATUSES:
+                        self._send(*api_error(409, "Only open requests can be completed."))
                         return
                     request["status"] = "Completed"
                     note_key = "completed"

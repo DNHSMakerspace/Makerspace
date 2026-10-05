@@ -136,7 +136,7 @@ Primary admin cannot be deleted. Demo student + one active request/chat are seed
 | DELETE | `/api/inventory/{id}` | Admin | Remove color |
 | GET | `/api/requests` | Bearer | Own requests (admin: all) |
 | POST | `/api/requests` | Bearer | Create print request |
-| POST | `/api/requests/{id}/status` | Admin | `{ "action": "accept\|complete\|close\|reject" }` |
+| POST | `/api/requests/{id}/status` | Admin | `{ "action": "accept\|complete\|close\|reject" }` (`complete` and `reject` work from any open status) |
 | GET | `/api/chats/{requestId}` | Bearer | One request chat |
 | GET | `/api/inventory-feed` | Bearer | Shared inventory microblog messages |
 | POST | `/api/inventory-feed` | Admin | Post inventory microblog message (`<name> was added.` / `<name> is out of stock.`) |

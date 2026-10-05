@@ -20,7 +20,7 @@ permalink: /admin/
     <div>
       <span class="eyebrow">Staff tools</span>
       <h2>Admin review</h2>
-      <p>Accept requests, mark completed when the print is done, or close them. Completed and closed jobs move to print history.</p>
+      <p>Complete requests when the print is done — they move to print history. Reject anything we can't print; rejected requests are hidden everywhere.</p>
     </div>
   </div>
 

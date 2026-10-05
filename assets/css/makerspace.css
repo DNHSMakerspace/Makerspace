@@ -1399,6 +1399,32 @@ textarea {
   padding-top: 12px;
 }
 
+.chat-area-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.chat-close-button {
+  background: none;
+  border: 1px solid var(--ms-line-soft);
+  border-radius: 999px;
+  color: var(--ms-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.chat-close-button:hover,
+.chat-close-button:focus-visible {
+  color: var(--ms-navy);
+  border-color: var(--ms-navy);
+}
+
 .chat-messages {
   max-height: 240px;
   overflow: auto;

@@ -3,7 +3,7 @@
   const SESSION_TOKEN_KEY = 'makerspace-session-token';
   const ADMIN_EMAIL = 'krishk27411@stu.powayusd.com';
   const ACTIVE_STATUSES = ['pending', 'approved'];
-  const HISTORY_STATUSES = ['rejected', 'completed', 'closed'];
+  const HISTORY_STATUSES = ['completed', 'closed'];
   const ALLOWED_MATERIALS = ['PLA', 'PETG', 'SILK+'];
   // Fallback if HTML was cached before _config.yml injected MAKERSPACE_API.
   const FALLBACK_PRODUCTION_API = 'https://makerspace-api-o7u6.onrender.com';
@@ -43,6 +43,9 @@
   let stateCache = null;
   let apiHealthy = null;
   let apiStatusKind = ''; // '', 'ok', 'waking', 'blocked'
+  // Chats the user opened and has not closed yet. Survives list re-renders
+  // (20s poll, status changes, member edits) so a chat only closes on user action.
+  const openChatIds = new Set();
 
   // Single student-facing copy when the shared Render API is down or waking up.
   const SERVER_DOWN_MESSAGE =
@@ -884,7 +887,8 @@
     const opts = options || {};
     const status = item.status || 'Pending';
     const statusClass = status.toLowerCase();
-    const chatLabel = opts.history ? 'Message admin' : 'Chat with admin';
+    const isOpen = openChatIds.has(item.id);
+    const chatLabel = isOpen ? 'Hide chat' : (opts.history ? 'Message admin' : 'Chat with admin');
     const scope = opts.scope || 'user';
     const colorLabel = item.color || item.dimensions || 'See uploaded file';
     return `
@@ -930,10 +934,7 @@
       const status = item.status || 'Pending';
       const statusClass = status.toLowerCase();
       const normalized = normalizeStatus(status);
-      const canAccept = normalized === 'pending';
-      const canComplete = normalized === 'approved';
-      const canClose = normalized === 'pending' || normalized === 'approved';
-      const canReject = normalized === 'pending' || normalized === 'approved';
+      const isActive = normalized === 'pending' || normalized === 'approved';
       return `
         <article class="admin-item" data-request-card data-request-id="${item.id}">
           <div class="admin-item-header">
@@ -948,13 +949,11 @@
           </div>
           <p>${escapeHtml(item.description || 'No description provided.')}</p>
           <div class="admin-actions">
-            ${canAccept ? `<button type="button" class="approve" data-action="accept" data-request-id="${item.id}">Accept request</button>` : ''}
-            ${canComplete ? `<button type="button" class="complete" data-action="complete" data-request-id="${item.id}">Mark completed</button>` : ''}
-            ${canClose ? `<button type="button" class="close" data-action="close" data-request-id="${item.id}">Close request</button>` : ''}
-            ${canReject ? `<button type="button" class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>` : ''}
+            ${isActive ? `<button type="button" class="complete" data-action="complete" data-request-id="${item.id}">Complete request</button>` : ''}
+            ${isActive ? `<button type="button" class="reject" data-action="reject" data-request-id="${item.id}">Reject</button>` : ''}
           </div>
           <div class="request-actions">
-            <button type="button" class="makerspace-link-button request-chat-btn" data-chat-toggle data-request-id="${item.id}">Chat with student</button>
+            <button type="button" class="makerspace-link-button request-chat-btn" data-chat-toggle data-request-id="${item.id}">${openChatIds.has(item.id) ? 'Hide chat' : 'Chat with student'}</button>
             <span class="request-hint">Click the request to open chat</span>
           </div>
           <div class="chat-area" data-chat-area="${item.id}" data-chat-scope="admin" hidden></div>
@@ -1374,7 +1373,10 @@
   }
 
   function memberRequestHistory(state, email) {
-    return (state.requests || []).filter((item) => item.email === email);
+    // Rejected requests are hidden everywhere, including member detail.
+    return (state.requests || [])
+      .filter((item) => item.email === email)
+      .filter((item) => normalizeStatus(item.status) !== 'rejected');
   }
 
   function renderMemberRequestHistory(state, email) {
@@ -1962,7 +1964,7 @@
         renderAdminRequests();
         showAlert('#requestAlert', 'Request saved on this device only (shared server offline). Start the makerspace API to sync across computers.', 'success');
         setTimeout(() => {
-          openChatForRequest(request.id, true);
+          openChatForRequest(request.id);
         }, 80);
         return;
       }
@@ -1988,7 +1990,7 @@
         const requestId = result.request && result.request.id;
         if (requestId) {
           setTimeout(() => {
-            openChatForRequest(requestId, true);
+            openChatForRequest(requestId);
             const chatArea = document.querySelector(`[data-chat-area="${requestId}"]:not([hidden])`);
             if (chatArea) chatArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }, 80);
@@ -2023,10 +2025,20 @@
     return 'Chat on this device only — shared server offline.';
   }
 
+  function chatCloseButtonHtml(requestId) {
+    return `<button type="button" class="chat-close-button" data-chat-close data-request-id="${requestId}">Close chat</button>`;
+  }
+
   function renderChatInArea(area, requestId, user, chat) {
     if (!area) return;
     if (!user) {
-      area.innerHTML = '<div class="makerspace-empty">Sign in to chat with admin.</div>';
+      area.innerHTML = `
+        <div class="chat-area-header">
+          <span class="request-hint">Chat</span>
+          ${chatCloseButtonHtml(requestId)}
+        </div>
+        <div class="makerspace-empty">Sign in to chat with admin.</div>
+      `;
       return;
     }
 
@@ -2039,8 +2051,11 @@
 
     if (!chat || !(chat.messages || []).length) {
       area.innerHTML = `
+        <div class="chat-area-header">
+          <span class="request-hint">${escapeHtml(sourceLabel)}</span>
+          ${chatCloseButtonHtml(requestId)}
+        </div>
         <div class="makerspace-empty">No messages yet.</div>
-        <p class="request-hint">${escapeHtml(sourceLabel)}</p>
         <form class="chatForm" data-request-id="${requestId}">
           <input type="text" name="message" placeholder="${user.role === 'admin' ? 'Message the student...' : 'Message the admin about this print...'}" required />
           <button type="submit" class="makerspace-action-button">Send</button>
@@ -2062,8 +2077,11 @@
       : 'Message the admin about this print...';
 
     area.innerHTML = `
+      <div class="chat-area-header">
+        <span class="request-hint">${escapeHtml(sourceLabel)}</span>
+        ${chatCloseButtonHtml(requestId)}
+      </div>
       <div class="chat-messages">${messagesHtml}</div>
-      <p class="request-hint">${escapeHtml(sourceLabel)}</p>
       <form class="chatForm" data-request-id="${requestId}">
         <input type="text" name="message" placeholder="${placeholder}" required />
         <button type="submit" class="makerspace-action-button">Send</button>
@@ -2097,12 +2115,25 @@
   }
 
   function restoreOpenChats(snaps) {
-    (snaps || []).forEach((snap) => {
-      const area = document.querySelector(`[data-chat-area="${snap.id}"]`);
-      if (!area) return;
-      if (snap.hidden) area.setAttribute('hidden', '');
-      else area.removeAttribute('hidden');
-      restoreChatDraft(area, snap.draft, snap.focused);
+    const drafts = {};
+    const focus = {};
+    (snaps || []).forEach(function (snap) {
+      drafts[snap.id] = snap.draft;
+      focus[snap.id] = snap.focused;
+      if (!snap.hidden) openChatIds.add(snap.id);
+    });
+
+    openChatIds.forEach(function (id) {
+      const areas = document.querySelectorAll(`[data-chat-area="${id}"]`);
+      if (!areas.length) return;
+      // The list rebuild replaced the card markup, so the open chat is
+      // empty now — repopulate it before unhiding (renderChat skips
+      // areas the user is typing into).
+      renderChat(id);
+      areas.forEach(function (area) {
+        area.removeAttribute('hidden');
+        restoreChatDraft(area, drafts[id] || '', focus[id]);
+      });
     });
   }
 
@@ -2131,9 +2162,8 @@
     });
   }
 
-  async function openChatForRequest(requestId, forceOpen) {
-    const areas = Array.from(document.querySelectorAll(`[data-chat-area="${requestId}"]`));
-    if (!areas.length) return;
+  async function openChatForRequest(requestId) {
+    if (!document.querySelector(`[data-chat-area="${requestId}"]`)) return;
 
     const user = currentUser();
     if (!user) {
@@ -2145,12 +2175,16 @@
     const state = readState();
     const request = state.requests.find((item) => item.id === requestId);
     if (request && !canViewRequest(request, user)) {
-      areas.forEach((area) => {
+      document.querySelectorAll(`[data-chat-area="${requestId}"]`).forEach((area) => {
         area.innerHTML = '<div class="makerspace-empty">You do not have access to this request.</div>';
         area.removeAttribute('hidden');
       });
       return;
     }
+
+    // Record the user's intent BEFORE any async work, so a re-render
+    // (20s poll) happening mid-flight cannot close what they just opened.
+    openChatIds.add(requestId);
 
     // Primary: makerspace API proxy → Flask direct → Spring (shared chat).
     const sharedLoaded = await loadSharedChatForRequest(requestId);
@@ -2169,33 +2203,54 @@
       }
     }
 
+    // Re-query after the awaits: the lists may have been rebuilt while we
+    // waited, which detaches the nodes we saw at the start.
+    const areas = Array.from(document.querySelectorAll(`[data-chat-area="${requestId}"]`));
     areas.forEach((area) => {
       const isOpen = !area.hasAttribute('hidden');
       // If the user is typing in this open chat, leave it alone.
       if (isOpen && isChatAreaFocused(area)) return;
-      if (forceOpen || !isOpen) {
-        area.removeAttribute('hidden');
-        renderChatInArea(area, requestId, user, findChatByRequest(requestId));
-      } else {
-        area.setAttribute('hidden', '');
-      }
+      area.removeAttribute('hidden');
+      renderChatInArea(area, requestId, user, findChatByRequest(requestId));
     });
+  }
+
+  function closeChatForRequest(requestId) {
+    openChatIds.delete(requestId);
+    document.querySelectorAll(`[data-chat-area="${requestId}"]`).forEach((area) => {
+      area.setAttribute('hidden', '');
+    });
+  }
+
+  function isChatOpen(requestId) {
+    return Array.from(document.querySelectorAll(`[data-chat-area="${requestId}"]`))
+      .some((area) => !area.hasAttribute('hidden'));
   }
 
   function attachChatHandlers() {
     document.addEventListener('click', function (ev) {
+      const closeBtn = ev.target.closest('[data-chat-close]');
+      if (closeBtn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        closeChatForRequest(closeBtn.dataset.requestId);
+        return;
+      }
+
       const toggleBtn = ev.target.closest('[data-chat-toggle]');
       if (toggleBtn) {
         ev.preventDefault();
         ev.stopPropagation();
-        openChatForRequest(toggleBtn.dataset.requestId, true);
+        const requestId = toggleBtn.dataset.requestId;
+        if (isChatOpen(requestId)) closeChatForRequest(requestId);
+        else openChatForRequest(requestId);
         return;
       }
 
       const card = ev.target.closest('[data-request-card]');
       if (!card) return;
       if (ev.target.closest('a, button, input, textarea, select, label, form, .chat-area')) return;
-      openChatForRequest(card.dataset.requestId, true);
+      openChatForRequest(card.dataset.requestId);
     });
 
     document.addEventListener('keydown', function (ev) {
@@ -2203,7 +2258,7 @@
       const card = ev.target.closest('[data-request-card]');
       if (!card || ev.target !== card) return;
       ev.preventDefault();
-      openChatForRequest(card.dataset.requestId, true);
+      openChatForRequest(card.dataset.requestId);
     });
 
     document.addEventListener('submit', async function (ev) {
@@ -2314,7 +2369,8 @@
           request.status = 'Approved';
           noteKey = 'accepted';
         } else if (action === 'complete') {
-          if (normalized !== 'approved') return;
+          // Merged action: finishes the request from either open state.
+          if (normalized !== 'pending' && normalized !== 'approved') return;
           request.status = 'Completed';
           noteKey = 'completed';
         } else if (action === 'close') {
