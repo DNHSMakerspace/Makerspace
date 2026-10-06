@@ -1475,6 +1475,7 @@ textarea {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+  align-items: flex-start;
 }
 
 .chatForm input[type="text"] {
@@ -1484,6 +1485,29 @@ textarea {
 
 .chatForm .makerspace-action-button {
   padding: 10px 16px;
+}
+
+.chatForm .makerspace-action-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.chat-send {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-send-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ms-muted);
+  white-space: nowrap;
+}
+
+.chat-send-status.is-error {
+  color: #b42318;
 }
 
 /* ---------- Auth pill (injected by JS) ---------- */

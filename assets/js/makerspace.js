@@ -46,6 +46,9 @@
   // Chats the user opened and has not closed yet. Survives list re-renders
   // (20s poll, status changes, member edits) so a chat only closes on user action.
   const openChatIds = new Set();
+  // requestId -> 'sending' | 'failed'. Rendered under the Send button so a
+  // slow network round-trip is visible instead of looking like a dead tap.
+  const chatSendStatus = {};
 
   // Single student-facing copy when the shared Render API is down or waking up.
   const SERVER_DOWN_MESSAGE =
@@ -56,7 +59,7 @@
   // "this network can't reach the server at all".
   const SERVER_UNREACHABLE_HINT =
     'Still not connecting after a few minutes — this network may be blocking the server, or the server may be down. Try again later or a different network.';
-  const CACHE_BUST = 'ms30';
+  const CACHE_BUST = 'ms31';
   let hydrateFailures = 0;
   function isServerDownError(error) {
     if (!error) return false;
@@ -777,8 +780,45 @@
     return chat;
   }
 
+  function removeLocalChatMessage(requestId, message) {
+    const state = readState();
+    const chat = (state.chats || []).find((c) => c.requestId === requestId);
+    if (!chat || !Array.isArray(chat.messages)) return;
+    const key = `${message.sender}|${message.ts}|${message.text}`;
+    chat.messages = chat.messages.filter((m) => `${m.sender}|${m.ts}|${m.text}` !== key);
+    writeState(state);
+  }
+
   function mergeRemoteChatMessages(requestId, messages) {
-    (messages || []).forEach((m) => {
+    const state = readState();
+    const chat = (state.chats || []).find((c) => c.requestId === requestId);
+    const local = chat && Array.isArray(chat.messages) ? chat.messages : [];
+    const remote = messages || [];
+
+    // The same send arrives under different timestamps (optimistic client
+    // ts, API durable ts, Flask post ts). Claim closest local twins for the
+    // remote copies within 2 minutes — phase 1 claims against the ORIGINAL
+    // list so two legitimately identical rapid messages still both survive.
+    const toRemove = new Set();
+    remote.forEach((m) => {
+      let match = null;
+      let matchDelta = Infinity;
+      local.forEach((entry) => {
+        if (toRemove.has(entry)) return;
+        if (entry.sender !== m.sender || entry.text !== m.text) return;
+        const delta = Math.abs(entry.ts - m.ts);
+        if (delta < matchDelta) {
+          matchDelta = delta;
+          match = entry;
+        }
+      });
+      if (match && matchDelta <= 120000) toRemove.add(match);
+    });
+    if (toRemove.size && chat) {
+      chat.messages = local.filter((entry) => !toRemove.has(entry));
+    }
+
+    remote.forEach((m) => {
       upsertLocalChatMessage(requestId, {
         sender: m.sender,
         senderEmail: m.senderEmail || null,
@@ -856,6 +896,9 @@
     return ready;
   }
 
+  // Returns { ok, networkFail?, error? } so the caller can tell "server
+  // unreachable" (skip slow fallbacks, show the waking banner) from a
+  // rejected request.
   async function sendSharedChatMessage(requestId, text, user) {
     const topic = requestChatTopic(requestId);
 
@@ -871,26 +914,26 @@
             sender: user.name
           })
         }, 1);
-        if (data && data.ok) return true;
+        if (data && data.ok) return { ok: true };
       } catch (error) {
         console.warn('Makerspace chat proxy send failed.', error);
-        return false;
+        return { ok: false, networkFail: isServerDownError(error), error };
       }
     }
 
-    if (!directFlaskAllowed()) return false;
+    if (!directFlaskAllowed()) return { ok: false };
 
     const mb = microblogChat();
     if (mb && mb.sendMessage) {
       try {
-        if (await mb.sendMessage(requestId, text, user.name, user)) return true;
+        if (await mb.sendMessage(requestId, text, user.name, user)) return { ok: true };
       } catch (error) { /* fall through */ }
     }
     const spring = springChat();
     if (spring && spring.isConnected && spring.isConnected() && spring.sendMessage) {
-      if (spring.sendMessage(requestId, text, user.name)) return true;
+      if (spring.sendMessage(requestId, text, user.name)) return { ok: true };
     }
-    return false;
+    return { ok: false };
   }
 
   function adminEmails(state) {
@@ -2064,8 +2107,50 @@
     return `<button type="button" class="chat-close-button" data-chat-close data-request-id="${requestId}">Close chat</button>`;
   }
 
+  // Send form with an optional status line under the button ("Sending…").
+  function chatFormHtml(requestId, user) {
+    const status = chatSendStatus[requestId] || '';
+    const sending = status === 'sending';
+    const statusHtml = status
+      ? `<span class="chat-send-status${status === 'failed' ? ' is-error' : ''}">${sending ? 'Sending…' : 'Not sent — try again'}</span>`
+      : '';
+    const placeholder = user.role === 'admin'
+      ? 'Message the student...'
+      : 'Message the admin about this print...';
+    return `
+      <form class="chatForm" data-request-id="${requestId}">
+        <input type="text" name="message" placeholder="${placeholder}" required />
+        <div class="chat-send">
+          <button type="submit" class="makerspace-action-button"${sending ? ' disabled' : ''}>Send</button>
+          ${statusHtml}
+        </div>
+      </form>
+    `;
+  }
+
+  function captureChatScroll(area) {
+    const box = area && area.querySelector('.chat-messages');
+    if (!box) return null;
+    return {
+      top: box.scrollTop,
+      atBottom: box.scrollHeight - box.scrollTop - box.clientHeight < 40
+    };
+  }
+
+  function restoreChatScroll(area, snap) {
+    const box = area && area.querySelector('.chat-messages');
+    if (!box) return;
+    if (snap && !snap.atBottom) {
+      box.scrollTop = snap.top;
+      return;
+    }
+    // First open, or the user was already at the newest message: stick to bottom.
+    box.scrollTop = box.scrollHeight;
+  }
+
   function renderChatInArea(area, requestId, user, chat) {
     if (!area) return;
+    const scrollSnap = captureChatScroll(area);
     if (!user) {
       area.innerHTML = `
         <div class="chat-area-header">
@@ -2091,12 +2176,10 @@
           ${chatCloseButtonHtml(requestId)}
         </div>
         <div class="makerspace-empty">No messages yet.</div>
-        <form class="chatForm" data-request-id="${requestId}">
-          <input type="text" name="message" placeholder="${user.role === 'admin' ? 'Message the student...' : 'Message the admin about this print...'}" required />
-          <button type="submit" class="makerspace-action-button">Send</button>
-        </form>
+        ${chatFormHtml(requestId, user)}
       `;
       restoreChatDraft(area, draft, wasFocused);
+      restoreChatScroll(area, scrollSnap);
       return;
     }
 
@@ -2107,22 +2190,16 @@
       </div>
     `).join('');
 
-    const placeholder = user.role === 'admin'
-      ? 'Message the student...'
-      : 'Message the admin about this print...';
-
     area.innerHTML = `
       <div class="chat-area-header">
         <span class="request-hint">${escapeHtml(sourceLabel)}</span>
         ${chatCloseButtonHtml(requestId)}
       </div>
       <div class="chat-messages">${messagesHtml}</div>
-      <form class="chatForm" data-request-id="${requestId}">
-        <input type="text" name="message" placeholder="${placeholder}" required />
-        <button type="submit" class="makerspace-action-button">Send</button>
-      </form>
+      ${chatFormHtml(requestId, user)}
     `;
     restoreChatDraft(area, draft, wasFocused);
+    restoreChatScroll(area, scrollSnap);
   }
 
   function restoreChatDraft(area, draft, wasFocused) {
@@ -2139,11 +2216,18 @@
       const id = area.getAttribute('data-chat-area');
       if (!id) return;
       const input = area.querySelector('.chatForm input[name="message"]');
+      const box = area.querySelector('.chat-messages');
       snaps.push({
         id,
         hidden: area.hasAttribute('hidden'),
         draft: input ? input.value : '',
-        focused: !!(input && document.activeElement === input)
+        focused: !!(input && document.activeElement === input),
+        scroll: box
+          ? {
+            top: box.scrollTop,
+            atBottom: box.scrollHeight - box.scrollTop - box.clientHeight < 40
+          }
+          : null
       });
     });
     return snaps;
@@ -2152,9 +2236,11 @@
   function restoreOpenChats(snaps) {
     const drafts = {};
     const focus = {};
+    const scrolls = {};
     (snaps || []).forEach(function (snap) {
       drafts[snap.id] = snap.draft;
       focus[snap.id] = snap.focused;
+      scrolls[snap.id] = snap.scroll;
       if (!snap.hidden) openChatIds.add(snap.id);
     });
 
@@ -2168,6 +2254,11 @@
       areas.forEach(function (area) {
         area.removeAttribute('hidden');
         restoreChatDraft(area, drafts[id] || '', focus[id]);
+        // Put the message box back where the user was reading instead of
+        // snapping to the top on every list rebuild.
+        const box = area.querySelector('.chat-messages');
+        const saved = scrolls[id];
+        if (box && saved) box.scrollTop = saved.atBottom ? box.scrollHeight : saved.top;
       });
     });
   }
@@ -2187,14 +2278,32 @@
     return !!(active && area.contains(active));
   }
 
-  function renderChat(requestId) {
+  function renderChat(requestId, force) {
     const user = currentUser();
     const chat = findChatByRequest(requestId);
     document.querySelectorAll(`[data-chat-area="${requestId}"]`).forEach((area) => {
-      // Never clobber a chat the user is actively typing into.
-      if (isChatAreaFocused(area)) return;
+      // Never clobber a chat the user is actively typing into — unless this
+      // render is the send flow itself (draft + focus are restored anyway).
+      if (!force && isChatAreaFocused(area)) return;
       renderChatInArea(area, requestId, user, chat);
     });
+  }
+
+  function scrollChatToBottom(requestId) {
+    document.querySelectorAll(`[data-chat-area="${requestId}"] .chat-messages`).forEach((box) => {
+      box.scrollTop = box.scrollHeight;
+    });
+  }
+
+  // Return focus to this chat's input after a send render, without stealing
+  // focus if the user has already moved to another field.
+  function focusChatInput(requestId) {
+    const active = document.activeElement;
+    const tag = active ? (active.tagName || '').toLowerCase() : '';
+    if (active && active !== document.body && (tag === 'input' || tag === 'textarea')) return;
+    const area = document.querySelector(`[data-chat-area="${requestId}"]:not([hidden])`);
+    const input = area && area.querySelector('.chatForm input[name="message"]');
+    if (input) input.focus();
   }
 
   async function openChatForRequest(requestId) {
@@ -2305,6 +2414,8 @@
       if (!input) return;
       const text = input.value.trim();
       if (!text) return;
+      // Enter can re-submit while the previous send is still in flight.
+      if (chatSendStatus[requestId] === 'sending') return;
 
       const user = currentUser();
       if (!user) {
@@ -2319,23 +2430,44 @@
         return;
       }
 
-      // Primary: makerspace API proxy (Flask direct only on localhost).
-      if (await sendSharedChatMessage(requestId, text, user)) {
-        upsertLocalChatMessage(requestId, {
-          sender: user.name,
-          senderEmail: user.email,
-          text,
-          ts: Date.now()
-        });
-        renderChat(requestId);
+      // Optimistic send: show the bubble + "Sending…" right away, confirm in
+      // the background. The round-trip can take 30s+ against a cold Render
+      // start — students used to see nothing at all during that wait.
+      const optimistic = { sender: user.name, senderEmail: user.email, text, ts: Date.now() };
+      chatSendStatus[requestId] = 'sending';
+      input.value = '';
+      upsertLocalChatMessage(requestId, optimistic);
+      renderChat(requestId, true);
+      scrollChatToBottom(requestId);
+      focusChatInput(requestId);
+
+      const sent = await sendSharedChatMessage(requestId, text, user);
+      if (sent.ok) {
+        delete chatSendStatus[requestId];
+        // Re-add in case a hydrate refreshed chats mid-flight and dropped it.
+        upsertLocalChatMessage(requestId, optimistic);
+        renderChat(requestId, true);
+        scrollChatToBottom(requestId);
+        focusChatInput(requestId);
+        return;
+      }
+
+      // The send did not land — take the bubble back out before any fallback.
+      removeLocalChatMessage(requestId, optimistic);
+
+      // Network failure: the server never heard us, so the slower fallback
+      // endpoint (same unreachable server) would just waste another timeout.
+      if (API_BASE && sent.networkFail) {
+        failChatSend(requestId, text, sent.error);
         return;
       }
 
       // Fallback: makerspace API chats / localStorage.
       if (!API_BASE) {
         if (!directFlaskAllowed()) {
-          showAlert('#requestAlert', serverDownMessage('Chat'), 'error');
-          setApiStatus('waking', SERVER_DOWN_MESSAGE);
+          const err = new Error(SERVER_DOWN_MESSAGE);
+          err.code = 'NETWORK';
+          failChatSend(requestId, text, err);
           return;
         }
         state.chats = state.chats || [];
@@ -2356,21 +2488,41 @@
           user.email
         ]);
         writeState(state);
-        renderChat(requestId);
+        delete chatSendStatus[requestId];
+        renderChat(requestId, true);
+        scrollChatToBottom(requestId);
+        focusChatInput(requestId);
         return;
       }
 
+      // Shared-chat proxy rejected the post; durable chat endpoint may work.
       try {
         const result = await apiFetch(`/api/chats/${encodeURIComponent(requestId)}/messages`, {
           method: 'POST',
           body: JSON.stringify({ text })
         });
         applyApiPayload(result);
-        renderChat(requestId);
+        delete chatSendStatus[requestId];
+        renderChat(requestId, true);
+        scrollChatToBottom(requestId);
+        focusChatInput(requestId);
       } catch (error) {
-        handleApiError(error, '#requestAlert', 'Unable to send message.');
+        failChatSend(requestId, text, error);
       }
     });
+  }
+
+  // Send failed: keep the status visible under the button, hand the text
+  // back to the student for a one-tap retry, and surface the error.
+  function failChatSend(requestId, text, error) {
+    chatSendStatus[requestId] = 'failed';
+    renderChat(requestId, true);
+    document.querySelectorAll(`[data-chat-area="${requestId}"]`).forEach((area) => {
+      const inp = area.querySelector('.chatForm input[name="message"]');
+      if (inp && !inp.value) inp.value = text;
+    });
+    focusChatInput(requestId);
+    handleApiError(error, '#requestAlert', 'Unable to send message.');
   }
 
   function attachAdminActions() {
@@ -2463,7 +2615,8 @@
           await ensureSharedChatReady();
           const req = readState().requests.find((item) => item.id === requestId);
           const noteText = `${(req && req.projectName) || 'Request'} — ${note}`;
-          if (await sendSharedChatMessage(requestId, noteText, user)) {
+          const noteSent = await sendSharedChatMessage(requestId, noteText, user);
+          if (noteSent.ok) {
             upsertLocalChatMessage(requestId, {
               sender: user.name,
               senderEmail: user.email,
