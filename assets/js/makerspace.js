@@ -44,7 +44,7 @@
   let apiHealthy = null;
   let apiStatusKind = ''; // '', 'ok', 'waking', 'blocked'
   // Chats the user opened and has not closed yet. Survives list re-renders
-  // (20s poll, status changes, member edits) so a chat only closes on user action.
+  // (10s poll, status changes, member edits) so a chat only closes on user action.
   const openChatIds = new Set();
   // requestId -> 'sending' | 'failed'. Rendered under the Send button so a
   // slow network round-trip is visible instead of looking like a dead tap.
@@ -59,7 +59,7 @@
   // "this network can't reach the server at all".
   const SERVER_UNREACHABLE_HINT =
     'Still not connecting after a few minutes — this network may be blocking the server, or the server may be down. Try again later or a different network.';
-  const CACHE_BUST = 'ms31';
+  const CACHE_BUST = 'ms32';
   let hydrateFailures = 0;
   function isServerDownError(error) {
     if (!error) return false;
@@ -130,15 +130,14 @@
 
   function defaultInventory() {
     return [
-      { id: 'inv-pla-orange', name: 'Orange PLA', material: 'PLA' },
-      { id: 'inv-pla-black', name: 'Black PLA', material: 'PLA' },
-      { id: 'inv-pla-white', name: 'White PLA', material: 'PLA' },
-      { id: 'inv-petg-clear', name: 'Clear PETG', material: 'PETG' },
-      { id: 'inv-silk-blue', name: 'Blue SILK+', material: 'SILK+' },
-      { id: 'inv-pla-dark-green', name: 'Dark Green PLA', material: 'PLA' },
-      { id: 'inv-pla-yellow', name: 'Yellow PLA', material: 'PLA' },
-      { id: 'inv-pla-red', name: 'Red PLA', material: 'PLA' },
-      { id: 'inv-pla-lime-green', name: 'Lime Green PLA', material: 'PLA' }
+      { id: 'inv-pla-orange', name: 'Orange', material: 'PLA' },
+      { id: 'inv-pla-black', name: 'Black', material: 'PLA' },
+      { id: 'inv-pla-white', name: 'White', material: 'PLA' },
+      { id: 'inv-petg-clear', name: 'Clear', material: 'PETG' },
+      { id: 'inv-pla-dark-green', name: 'Dark Green', material: 'PLA' },
+      { id: 'inv-pla-yellow', name: 'Yellow', material: 'PLA' },
+      { id: 'inv-pla-red', name: 'Red', material: 'PLA' },
+      { id: 'inv-pla-lime-green', name: 'Lime Green', material: 'PLA' }
     ];
   }
 
@@ -286,7 +285,7 @@
   let hydrateInFlight = null;
 
   function hydrateFromApi() {
-    // One hydrate at a time — the recovery loop, the 20s poll, and the Retry
+    // One hydrate at a time — the recovery loop, the 10s poll, and the Retry
     // button would otherwise stack concurrent requests while the server is slow.
     if (hydrateInFlight) return hydrateInFlight;
     const request = (async function () {
@@ -464,8 +463,11 @@
   }
 
   function buildInventoryAnnouncement(action, name) {
-    if (action === 'removed') {
+    if (action === 'removed' || action === 'out') {
       return name + ' is out of stock.';
+    }
+    if (action === 'in') {
+      return name + ' is back in stock.';
     }
     return name + ' was added.';
   }
@@ -1299,26 +1301,31 @@
   }
 
   function outOfStockByMaterial(state) {
-    const catalog = defaultInventory();
+    const inventory = (state.inventory || []).filter((item) => item && item.name);
+    // Stocked = present in state AND not flagged out of stock by an admin.
     const stocked = new Set(
-      (state.inventory || [])
-        .filter((item) => item && item.name)
+      inventory
+        .filter((item) => item.inStock !== false)
         .map((item) => `${item.material || ''}|${item.name}`)
     );
+    // Known colors = defaults ∪ admin-added items, so a flagged-out custom
+    // color shows up here too (catalog-only matching would miss it).
+    const known = new Map();
+    defaultInventory().forEach((entry) => known.set(`${entry.material || ''}|${entry.name}`, entry));
+    inventory.forEach((entry) => known.set(`${entry.material || ''}|${entry.name}`, entry));
     const byMaterial = new Map();
 
-    catalog.forEach((entry) => {
-      const key = `${entry.material || ''}|${entry.name}`;
+    known.forEach((entry, key) => {
       if (stocked.has(key)) return;
       if (!byMaterial.has(entry.material)) byMaterial.set(entry.material, []);
       byMaterial.get(entry.material).push(entry.name);
     });
 
     ALLOWED_MATERIALS.forEach((material) => {
-      const stockedForMaterial = (state.inventory || []).some(
-        (item) => item && item.material === material && item.name
+      const anyStocked = inventory.some(
+        (item) => item.material === material && item.inStock !== false
       );
-      if (stockedForMaterial) return;
+      if (anyStocked) return;
       const listed = byMaterial.get(material) || [];
       if (!listed.length) byMaterial.set(material, ['All colors']);
     });
@@ -1358,7 +1365,11 @@
   }
 
   function inventoryForMaterial(state, material) {
-    return (state.inventory || []).filter((item) => item && item.material === material);
+    // Items flagged out of stock stay in state (so admins can toggle them
+    // back) but disappear from the student color dropdown.
+    return (state.inventory || []).filter(
+      (item) => item && item.material === material && item.inStock !== false
+    );
   }
 
   function populateColorOptions(material, selectedValue) {
@@ -1414,15 +1425,22 @@
       return;
     }
 
-    container.innerHTML = items.map((item) => `
-      <div class="inventory-item">
+    container.innerHTML = items.map((item) => {
+      const inStock = item.inStock !== false;
+      const label = escapeHtml(item.name || 'Unnamed');
+      return `
+      <div class="inventory-item${inStock ? '' : ' is-out-of-stock'}">
         <div class="inventory-item-main">
-          <strong>${escapeHtml(item.name || 'Unnamed')}</strong>
+          <strong>${label}</strong>
           <span class="makerspace-badge">${escapeHtml(item.material || '')}</span>
         </div>
-        <button type="button" class="inventory-delete" data-inventory-delete="${escapeHtml(item.id || '')}">Remove</button>
-      </div>
-    `).join('');
+        <label class="inventory-stock-toggle">
+          <input type="checkbox" data-inventory-stock="${escapeHtml(item.id || '')}" ${inStock ? 'checked' : ''} aria-label="${label} stock status">
+          <span class="inventory-stock-slider" aria-hidden="true"></span>
+          <span class="inventory-stock-label">${inStock ? 'In stock' : 'Out of stock'}</span>
+        </label>
+      </div>`;
+    }).join('');
   }
 
   function memberMatchesQuery(user, query) {
@@ -1886,48 +1904,53 @@
       });
     }
 
-    document.addEventListener('click', async function (event) {
-      const target = event.target.closest('[data-inventory-delete]');
-      if (!target) return;
+    document.addEventListener('change', async function (event) {
+      const input = event.target.closest('[data-inventory-stock]');
+      if (!input) return;
 
       const actor = currentUser();
-      if (!actor || actor.role !== 'admin') return;
+      if (!actor || actor.role !== 'admin') {
+        renderInventoryList();
+        return;
+      }
 
-      const id = target.dataset.inventoryDelete;
+      const id = input.dataset.inventoryStock;
       if (!id) return;
 
+      const inStock = input.checked;
+      const action = inStock ? 'in' : 'out';
+      const item = (readState().inventory || []).find((entry) => entry.id === id) || null;
+      if (!item) {
+        renderInventoryList();
+        return;
+      }
+
       if (!API_BASE) {
-        const state = readState();
-        const before = (state.inventory || []).length;
-        const removed = (state.inventory || []).find((item) => item.id === id) || null;
-        state.inventory = (state.inventory || []).filter((item) => item.id !== id);
-        if (state.inventory.length === before) return;
-        writeState(state);
+        item.inStock = inStock;
+        writeState(readState());
         renderInventoryList();
         refreshColorOptionsFromForm();
-        let announce = { ok: false, reason: 'no-item' };
-        if (removed) {
-          announce = await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
-          renderInventoryFeed();
-        }
-        showAlert('#inventoryAlert', `Inventory item removed on this device only (shared server offline). ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
+        const announce = await announceInventoryChange(action, { name: item.name, material: item.material }, actor);
+        renderInventoryFeed();
+        showAlert('#inventoryAlert', `${item.name} marked ${inStock ? 'in stock' : 'out of stock'} on this device only (shared server offline). ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
         return;
       }
 
       try {
-        const removed = (readState().inventory || []).find((item) => item.id === id) || null;
-        const result = await apiFetch(`/api/inventory/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const result = await apiFetch(`/api/inventory/${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ inStock })
+        });
         applyApiPayload(result);
         renderInventoryList();
         refreshColorOptionsFromForm();
-        let announce = { ok: false, reason: 'no-item' };
-        if (removed) {
-          announce = await announceInventoryChange('removed', { name: removed.name, material: removed.material }, actor);
-          renderInventoryFeed();
-        }
-        showAlert('#inventoryAlert', `Inventory item removed. ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
+        const announce = await announceInventoryChange(action, { name: item.name, material: item.material }, actor);
+        renderInventoryFeed();
+        showAlert('#inventoryAlert', `${item.name} marked ${inStock ? 'in stock' : 'out of stock'}. ${inventoryAnnounceLabel(announce)}`, announce && announce.ok ? 'success' : 'error');
       } catch (error) {
-        handleApiError(error, '#inventoryAlert', 'Unable to remove inventory item.');
+        // Rebuild from last-known state so the slider snaps back.
+        renderInventoryList();
+        handleApiError(error, '#inventoryAlert', 'Unable to update stock status.');
       }
     });
   }
@@ -2329,7 +2352,7 @@
     }
 
     // Record the user's intent BEFORE any async work, so a re-render
-    // (20s poll) happening mid-flight cannot close what they just opened.
+    // (10s poll) happening mid-flight cannot close what they just opened.
     openChatIds.add(requestId);
 
     // Primary: makerspace API proxy → Flask direct → Spring (shared chat).
@@ -2791,7 +2814,14 @@
     recoverApiState();
     setInterval(recoverApiState, 15000);
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') recoverApiState();
+      if (document.visibilityState !== 'visible') return;
+      recoverApiState();
+      // Tab back → pull fresh state right away (stock/out-of-stock may have
+      // changed while hidden). recoverApiState no-ops while healthy, so
+      // hydrate explicitly here.
+      if (apiHealthy) {
+        hydrateFromApi().then(function (ok) { if (ok) safeRenderAll(); });
+      }
     });
 
     // Optimistic wake banner: if the first hydrate hasn't resolved quickly,
@@ -2857,7 +2887,7 @@
             if (isChatAreaFocused(area)) return;
             if (await loadSharedChatForRequest(requestId)) renderChat(requestId);
           });
-        }, 20000);
+        }, 10000);
       }
     }
 
