@@ -58,15 +58,15 @@ ACTIVE_STATUSES = {"pending", "approved"}
 HISTORY_STATUSES = {"completed", "closed"}
 
 DEFAULT_INVENTORY = [
-    {"id": "inv-pla-orange", "name": "Orange PLA", "material": "PLA"},
-    {"id": "inv-pla-black", "name": "Black PLA", "material": "PLA"},
-    {"id": "inv-pla-white", "name": "White PLA", "material": "PLA"},
-    {"id": "inv-petg-clear", "name": "Clear PETG", "material": "PETG"},
-    {"id": "inv-silk-blue", "name": "Blue SILK+", "material": "SILK+"},
-    {"id": "inv-pla-dark-green", "name": "Dark Green PLA", "material": "PLA"},
-    {"id": "inv-pla-yellow", "name": "Yellow PLA", "material": "PLA"},
-    {"id": "inv-pla-red", "name": "Red PLA", "material": "PLA"},
-    {"id": "inv-pla-lime-green", "name": "Lime Green PLA", "material": "PLA"},
+    {"id": "inv-pla-orange", "name": "PLA Orange", "material": "PLA"},
+    {"id": "inv-pla-charcoal-black", "name": "PLA Charcoal Black", "material": "PLA"},
+    {"id": "inv-pla-white", "name": "PLA White", "material": "PLA"},
+    {"id": "inv-petg-translucent", "name": "PETG Translucent", "material": "PETG"},
+    {"id": "inv-silk-blue", "name": "SILK+ Blue", "material": "SILK+"},
+    {"id": "inv-pla-mistletoe-green", "name": "PLA Mistletoe Green", "material": "PLA"},
+    {"id": "inv-pla-sunflower-yellow", "name": "PLA Sunflower Yellow", "material": "PLA"},
+    {"id": "inv-pla-red", "name": "PLA Red", "material": "PLA"},
+    {"id": "inv-pla-green", "name": "PLA Green", "material": "PLA"},
 ]
 
 _lock = threading.RLock()
