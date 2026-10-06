@@ -130,13 +130,15 @@
 
   function defaultInventory() {
     return [
-      { id: 'inv-pla-orange', name: 'Orange PLA basic', material: 'PLA' },
-      { id: 'inv-pla-black', name: 'Black PLA basic', material: 'PLA' },
-      { id: 'inv-pla-white', name: 'White PLA basic', material: 'PLA' },
+      { id: 'inv-pla-orange', name: 'Orange PLA', material: 'PLA' },
+      { id: 'inv-pla-black', name: 'Black PLA', material: 'PLA' },
+      { id: 'inv-pla-white', name: 'White PLA', material: 'PLA' },
       { id: 'inv-petg-clear', name: 'Clear PETG', material: 'PETG' },
-      { id: 'inv-petg-black', name: 'Black PETG', material: 'PETG' },
-      { id: 'inv-silk-gold', name: 'Gold SILK+', material: 'SILK+' },
-      { id: 'inv-silk-silver', name: 'Silver SILK+', material: 'SILK+' }
+      { id: 'inv-silk-blue', name: 'Blue SILK+', material: 'SILK+' },
+      { id: 'inv-pla-dark-green', name: 'Dark Green PLA', material: 'PLA' },
+      { id: 'inv-pla-yellow', name: 'Yellow PLA', material: 'PLA' },
+      { id: 'inv-pla-red', name: 'Red PLA', material: 'PLA' },
+      { id: 'inv-pla-lime-green', name: 'Lime Green PLA', material: 'PLA' }
     ];
   }
 
