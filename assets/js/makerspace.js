@@ -52,7 +52,12 @@
     'The shared makerspace server is offline or still waking up. Please wait about a minute, then try again.';
   const SERVER_DOWN_HINT =
     'If it still fails after a minute, tap Retry connection at the top of the page.';
-  const CACHE_BUST = 'ms28';
+  // Shown after repeated failures so users can tell "still waking" from
+  // "this network can't reach the server at all".
+  const SERVER_UNREACHABLE_HINT =
+    'Still not connecting after a few minutes — this network may be blocking the server, or the server may be down. Try again later or a different network.';
+  const CACHE_BUST = 'ms30';
+  let hydrateFailures = 0;
   function isServerDownError(error) {
     if (!error) return false;
     if (error.code === 'NETWORK') return true;
@@ -244,7 +249,11 @@
       const message = (data && data.error) || `Request failed (${res.status})`;
       const err = new Error(message);
       err.status = res.status;
-      err.code = 'API_ERROR';
+      // 502/503/504 from Cloudflare/Render means the origin is still waking —
+      // retryable like a network error, not a hard block.
+      err.code = (res.status === 502 || res.status === 503 || res.status === 504)
+        ? 'NETWORK'
+        : 'API_ERROR';
       throw err;
     }
     apiHealthy = true;
@@ -269,29 +278,45 @@
     throw lastError;
   }
 
-  async function hydrateFromApi() {
-    if (!API_BASE) {
-      apiHealthy = false;
-      setApiStatus('blocked', 'Shared makerspace server is not configured on this page.');
-      return false;
-    }
-    try {
-      const data = await apiFetchWithRetry('/api/state', null, 1);
-      applyApiPayload(data);
-      apiHealthy = true;
-      setApiStatus('ok', 'Shared server connected.');
-      return true;
-    } catch (error) {
-      apiHealthy = false;
-      console.warn('Makerspace API hydrate failed; using local cache.', error);
-      const reason = (error && error.code) || 'network';
-      if (reason === 'NETWORK') {
-        setApiStatus('waking', `${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`);
-      } else {
-        setApiStatus('blocked', (error && error.message) || 'Shared server error.');
+  let hydrateInFlight = null;
+
+  function hydrateFromApi() {
+    // One hydrate at a time — the recovery loop, the 20s poll, and the Retry
+    // button would otherwise stack concurrent requests while the server is slow.
+    if (hydrateInFlight) return hydrateInFlight;
+    const request = (async function () {
+      if (!API_BASE) {
+        apiHealthy = false;
+        setApiStatus('blocked', 'Shared makerspace server is not configured on this page.');
+        return false;
       }
-      return false;
-    }
+      try {
+        const data = await apiFetchWithRetry('/api/state', null, 1);
+        applyApiPayload(data);
+        apiHealthy = true;
+        hydrateFailures = 0;
+        setApiStatus('ok', 'Shared server connected.');
+        return true;
+      } catch (error) {
+        apiHealthy = false;
+        hydrateFailures += 1;
+        console.warn('Makerspace API hydrate failed; using local cache.', error);
+        const reason = (error && error.code) || 'network';
+        if (reason === 'NETWORK') {
+          const hint = hydrateFailures >= 4 ? SERVER_UNREACHABLE_HINT : SERVER_DOWN_HINT;
+          setApiStatus('waking', `${SERVER_DOWN_MESSAGE} ${hint}`);
+        } else {
+          setApiStatus('blocked', (error && error.message) || 'Shared server error.');
+        }
+        return false;
+      }
+    })();
+    hydrateInFlight = request;
+    const clear = function () {
+      if (hydrateInFlight === request) hydrateInFlight = null;
+    };
+    request.then(clear, clear);
+    return request;
   }
 
   function setApiStatus(kind, message) {
@@ -327,13 +352,23 @@
   async function retryApiConnection() {
     setApiStatus('waking', 'Retrying shared server…');
     const ok = await hydrateFromApi();
-    renderAll();
-    if (!ok) {
-      setApiStatus(
-        'waking',
-        `${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`
-      );
-    }
+    // On failure hydrateFromApi shows the correct error banner itself
+    // (including the long-wait "may be blocked" hint) — don't overwrite it.
+    if (ok) safeRenderAll();
+  }
+
+  // Clears the "waking up" banner without user action: hydrate whenever the
+  // shared API is unhealthy. Runs on every page — retries used to exist only
+  // on list pages, so Home / Sign in could sit on "waking" forever.
+  // Also runs when apiHealthy is true but a non-hydrate action (sign-in,
+  // chat, inventory) left the banner up: those set 'waking'/'blocked' without
+  // flipping apiHealthy, which would otherwise freeze the banner forever.
+  async function recoverApiState() {
+    if (!API_BASE) return;
+    const bannerStuck = apiStatusKind === 'waking' || apiStatusKind === 'blocked';
+    if (apiHealthy && !bannerStuck) return;
+    const ok = await hydrateFromApi();
+    if (ok) safeRenderAll();
   }
 
   function attachApiStatusHandlers() {
@@ -343,14 +378,6 @@
       event.preventDefault();
       retryApiConnection();
     });
-  }
-
-  function keepApiWarm() {
-    if (!API_BASE || apiHealthy) return;
-    apiFetch('/api/health', { timeoutMs: 20000 }).then(function () {
-      apiHealthy = true;
-      setApiStatus('ok', 'Shared server connected.');
-    }).catch(function () { /* banner already set by hydrate */ });
   }
 
   function currentUser() {
@@ -2560,6 +2587,20 @@
     welcome.textContent = user ? `Welcome back, ${user.name}` : 'Sign in to start printing';
   }
 
+  // renderAll rebuilds lists/forms, so never run it mid-keystroke. When a
+  // hydrate lands while the user is typing, remember the render and do it as
+  // soon as they stop (focusout or the next recovery tick).
+  let owesRender = false;
+
+  function safeRenderAll() {
+    if (isUserTyping()) {
+      owesRender = true;
+      return;
+    }
+    owesRender = false;
+    renderAll();
+  }
+
   function renderAll() {
     updateSignedInState();
     initializeWelcome();
@@ -2588,15 +2629,36 @@
 
     // Paint immediately from cache, then hydrate makerspace API state.
     renderAll();
-    await hydrateFromApi();
-    renderAll();
-    keepApiWarm();
 
-    // Re-warm when the tab becomes visible again (Render may have slept).
+    // Arm recovery BEFORE the first hydrate: a cold Render start takes
+    // 30-60s (longer than API_TIMEOUT_MS), so the first attempt may still be
+    // in flight — or already failed — and Home/Sign in must self-heal too.
+    recoverApiState();
+    setInterval(recoverApiState, 15000);
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && !apiHealthy) {
-        keepApiWarm();
+      if (document.visibilityState === 'visible') recoverApiState();
+    });
+
+    // Optimistic wake banner: if the first hydrate hasn't resolved quickly,
+    // tell students the server is waking instead of showing a silent page.
+    // hydrateFromApi replaces it with the real outcome (ok/blocked) when done.
+    const wakeTimer = setTimeout(function () {
+      if (!apiHealthy && !apiStatusKind) {
+        setApiStatus('waking', `${SERVER_DOWN_MESSAGE} ${SERVER_DOWN_HINT}`);
       }
+    }, 4000);
+
+    await hydrateFromApi();
+    clearTimeout(wakeTimer);
+    safeRenderAll();
+
+    // A render deferred by typing (hydrate landed mid-keystroke) runs when
+    // the user leaves a field.
+    document.addEventListener('focusout', function () {
+      if (!owesRender) return;
+      setTimeout(function () {
+        if (owesRender && !isUserTyping()) safeRenderAll();
+      }, 150);
     });
 
     // Shared chat: re-poll open request chats when live messages arrive (Spring).
@@ -2625,12 +2687,11 @@
       const hasInventoryFeed = !!document.getElementById('inventoryFeed');
       if (hasRequestUi || hasInventoryFeed) {
         setInterval(async function () {
-          // Never rebuild lists while the user is typing — that wipes open
-          // chat inputs and member-edit forms under the cursor.
-          if (isUserTyping()) return;
+          // Fetch state even while the user is typing (only DOM rebuilds wait —
+          // otherwise a student focused in an input blocked retries forever).
           if (API_BASE) {
             const ok = await hydrateFromApi();
-            if (ok && !isUserTyping()) renderAll();
+            if (ok) safeRenderAll();
           }
           if (hasInventoryFeed && !isUserTyping()) renderInventoryFeed();
           // Refresh chats that are currently visible (renderChat skips focused areas).
