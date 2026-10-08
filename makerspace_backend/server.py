@@ -58,14 +58,23 @@ ACTIVE_STATUSES = {"pending", "approved"}
 HISTORY_STATUSES = {"completed", "closed"}
 
 DEFAULT_INVENTORY = [
-    {"id": "inv-pla-orange", "name": "Orange", "material": "PLA"},
-    {"id": "inv-pla-black", "name": "Black", "material": "PLA"},
-    {"id": "inv-pla-white", "name": "White", "material": "PLA"},
-    {"id": "inv-petg-clear", "name": "Clear", "material": "PETG"},
-    {"id": "inv-pla-dark-green", "name": "Dark Green", "material": "PLA"},
-    {"id": "inv-pla-yellow", "name": "Yellow", "material": "PLA"},
-    {"id": "inv-pla-red", "name": "Red", "material": "PLA"},
-    {"id": "inv-pla-lime-green", "name": "Lime Green", "material": "PLA"},
+    {"id": "inv-pla-orange", "name": "PLA Basic Orange", "material": "PLA"},
+    {"id": "inv-pla-white", "name": "PLA Basic White", "material": "PLA"},
+    {"id": "inv-petg-clear", "name": "PETG Clear", "material": "PETG"},
+    {"id": "inv-pla-dark-green", "name": "PLA Basic Dark Green", "material": "PLA"},
+    {"id": "inv-pla-yellow", "name": "PLA Basic Yellow", "material": "PLA"},
+    {"id": "inv-pla-red", "name": "PLA Basic Red", "material": "PLA"},
+    {"id": "inv-pla-lime-green", "name": "PLA Basic Lime Green", "material": "PLA"},
+    {"id": "inv-pla-purple", "name": "PLA Basic Purple", "material": "PLA"},
+    {"id": "inv-pla-blue", "name": "PLA Basic Blue", "material": "PLA"},
+    {"id": "inv-silk-blue", "name": "SILK+ Basic Blue", "material": "SILK+"},
+    {"id": "inv-pla-matte-orange", "name": "PLA Matte Orange", "material": "PLA"},
+    {"id": "inv-pla-mistletoe-green", "name": "PLA Basic Mistletoe Green", "material": "PLA"},
+    {"id": "inv-pla-matte-mandarin-orange", "name": "PLA Matte Mandarin Orange", "material": "PLA"},
+    {"id": "inv-petg-dark-brown", "name": "PETG Basic Dark Brown", "material": "PETG"},
+    {"id": "inv-petg-translucent", "name": "PETG Basic Translucent", "material": "PETG"},
+    {"id": "inv-pla-matte-charcoal", "name": "PLA Matte Charcoal Black", "material": "PLA"},
+    {"id": "inv-petg-black", "name": "PETG black", "material": "PETG"},
 ]
 
 _lock = threading.RLock()

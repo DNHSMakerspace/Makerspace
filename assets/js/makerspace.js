@@ -59,7 +59,7 @@
   // "this network can't reach the server at all".
   const SERVER_UNREACHABLE_HINT =
     'Still not connecting after a few minutes — this network may be blocking the server, or the server may be down. Try again later or a different network.';
-  const CACHE_BUST = 'ms32';
+  const CACHE_BUST = 'ms33';
   let hydrateFailures = 0;
   function isServerDownError(error) {
     if (!error) return false;
@@ -131,13 +131,22 @@
   function defaultInventory() {
     return [
       { id: 'inv-pla-orange', name: 'Orange', material: 'PLA' },
-      { id: 'inv-pla-black', name: 'Black', material: 'PLA' },
       { id: 'inv-pla-white', name: 'White', material: 'PLA' },
       { id: 'inv-petg-clear', name: 'Clear', material: 'PETG' },
       { id: 'inv-pla-dark-green', name: 'Dark Green', material: 'PLA' },
       { id: 'inv-pla-yellow', name: 'Yellow', material: 'PLA' },
       { id: 'inv-pla-red', name: 'Red', material: 'PLA' },
-      { id: 'inv-pla-lime-green', name: 'Lime Green', material: 'PLA' }
+      { id: 'inv-pla-lime-green', name: 'Lime Green', material: 'PLA' },
+      { id: 'inv-pla-purple', name: 'PLA basic purple', material: 'PLA' },
+      { id: 'inv-pla-blue', name: 'PLA basic blue', material: 'PLA' },
+      { id: 'inv-silk-blue', name: 'SILK+ blue', material: 'SILK+' },
+      { id: 'inv-pla-matte-orange', name: 'PLA matte orange', material: 'PLA' },
+      { id: 'inv-pla-mistletoe-green', name: 'PLA basic mistletoe green', material: 'PLA' },
+      { id: 'inv-pla-matte-mandarin-orange', name: 'PLA matte mandarin orange', material: 'PLA' },
+      { id: 'inv-petg-dark-brown', name: 'PETG dark brown', material: 'PETG' },
+      { id: 'inv-petg-translucent', name: 'PETG translucent', material: 'PETG' },
+      { id: 'inv-pla-matte-charcoal', name: 'PLA matte charcoal', material: 'PLA' },
+      { id: 'inv-petg-black', name: 'PETG black', material: 'PETG' }
     ];
   }
 
